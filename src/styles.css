@@ -2223,6 +2223,38 @@ textarea {
   flex: 1;
   min-width: 0;
 }
+.bibliography-entry {
+  flex: 1;
+  min-width: 0;
+}
+.bibliography-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 0;
+  font-size: 11px;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bibliography-source-link small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.citation-title-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.citation-title-link svg { margin-left: 5px; }
+.bibliography-source-link:hover, .citation-title-link:hover { color: #525252; }
+.bibliography-source-link:focus-visible, .citation-title-link:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
 .bibliography .inline-actions {
   margin-top: 20px;
 }

@@ -6,6 +6,19 @@ export const stripTags = (s = "") =>
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
+export function crossrefRequest(query, allTypes = false) {
+  const doi = query.trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "");
+  if (allTypes && /^10\.\d{4,9}\/\S+$/i.test(doi))
+    return { url: `https://api.crossref.org/works/${encodeURIComponent(doi)}`, exact: true };
+  const params = new URLSearchParams({ [allTypes ? "query.bibliographic" : "query"]: query, rows: "40" });
+  if (!allTypes) params.set("filter", "type:journal-article");
+  return { url: `https://api.crossref.org/works?${params}`, exact: false };
+}
+export function rankBibliography(papers, query) {
+  const key = (value) => stripTags(value).normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, " ").replace(/\s+/g, " ").trim();
+  const title = key(query);
+  return [...papers].sort((a, b) => Number(key(b.title) === title) - Number(key(a.title) === title));
+}
 export function crossrefPaper(p) {
   return {
     id: p.DOI,
@@ -22,6 +35,8 @@ export function crossrefPaper(p) {
     abstract: stripTags(p.abstract || ""),
     citations: p["is-referenced-by-count"] == null ? null : Number(p["is-referenced-by-count"]),
     type: p.type || "Research paper",
+    publisher: stripTags(p.publisher || ""),
+    isbn: Array.isArray(p.ISBN) ? p.ISBN : [],
     source: "Crossref",
     volume: p.volume || "",
     issue: p.issue || "",

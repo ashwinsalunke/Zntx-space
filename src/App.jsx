@@ -77,7 +77,7 @@ import {
   RotateCcw,
   CheckCheck,
 } from "lucide-react";
-import { api, download, citation, csv, excerpt, wordCount } from "./lib.js";
+import { api, download, citation, csv, excerpt, wordCount, sourceUrl, bibliographyHtml } from "./lib.js";
 import { relevantPassages } from "../server/research.js";
 import AiPanel from "./AiPanel.jsx";
 import { exportDocument, exportSlides } from "./export-client.js";
@@ -1550,6 +1550,7 @@ function PaperDetail({ paper: p, onClose }) {
             </select>
           </div>
           <pre>{citation(p, style)}</pre>
+          <BibliographySourceLink record={p} />
           <div className="inline-actions">
             <Button icon={Copy} onClick={copy}>
               Copy citation
@@ -2455,6 +2456,16 @@ function Topics() {
     </section>
   );
 }
+function BibliographySourceLink({ record }) {
+  const url = sourceUrl(record);
+  return url ? (
+    <a className="bibliography-source-link" href={url} target="_blank" rel="noopener noreferrer"
+      aria-label={"Open original source for " + record.title + " (opens in a new tab)"}>
+      <ExternalLink size={13} aria-hidden="true" />
+      <span>Open original source <small>{new URL(url).hostname}</small></span>
+    </a>
+  ) : <span className="small muted">Source link unavailable</span>;
+}
 function Citations() {
   const { library, notify } = useApp();
   const [q, setQ] = useState("");
@@ -2463,14 +2474,18 @@ function Citations() {
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const search = async (e) => {
     e.preventDefault();
     setBusy(true);
     setSearched(true);
+    setPapers([]);
+    setSearchError("");
     try {
-      const result = await api("/api/papers?q=" + encodeURIComponent(q));
+      const result = await api("/api/papers?scope=all&q=" + encodeURIComponent(q));
       setPapers(result.papers);
     } catch (e) {
+      setSearchError(e.message);
       notify(e.message, true);
     } finally {
       setBusy(false);
@@ -2493,17 +2508,17 @@ function Citations() {
           <Quote size={24} />
         </span>
         <h1>Citation Generator</h1>
-        <p>Find a source. Build your bibliography. Keep writing.</p>
+        <p>Find articles and books. Follow every reference to its original source.</p>
       </div>
       <form className="search-form" onSubmit={search}>
         <Search size={18} />
         <input
-          aria-label="Paper title or DOI"
+          aria-label="Drug keyword, article or book title, or DOI"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by paper title, keyword, or DOI…"
+          placeholder="Drug keyword, article or book title, or DOI…"
         />
-        <Button primary disabled={!q.trim() || busy}>
+        <Button primary aria-label="Find source" disabled={!q.trim() || busy}>
           {busy ? (
             <LoaderCircle className="spin" size={16} />
           ) : (
@@ -2521,14 +2536,17 @@ function Citations() {
               {(searched ? papers : library).length} sources
             </span>
           </div>
+          {busy && <p className="small muted" role="status">Searching source metadata…</p>}
+          {searchError && <p className="notice" role="alert">{searchError}</p>}
           {(searched ? papers : library).map((p) => (
             <div className="citation-source" key={p.id}>
               <FileText size={18} />
               <div>
-                <h3>{p.title}</h3>
+                <h3>{sourceUrl(p) ? <a className="citation-title-link" href={sourceUrl(p)} target="_blank" rel="noopener noreferrer">{p.title}<ExternalLink size={12} aria-hidden="true" /></a> : p.title}</h3>
                 <p>
-                  {p.authors[0]} · {p.year || "n.d."}
+                  {p.authors[0] || "Author unavailable"} · {p.year || "n.d."} · {p.type || "Source record"}
                 </p>
+                <BibliographySourceLink record={p} />
               </div>
               <button
                 className="icon-btn"
@@ -2544,7 +2562,7 @@ function Citations() {
               </button>
             </div>
           ))}
-          {!(searched ? papers : library).length && (
+          {!busy && !searchError && !(searched ? papers : library).length && (
             <Empty
               icon={Quote}
               title={searched ? "No sources found" : "Your sources start here"}
@@ -2574,7 +2592,10 @@ function Citations() {
             selected.map((p, i) => (
               <div className="bibliography-item" key={p.id}>
                 <span>{i + 1}</span>
-                <pre>{citation(p, style)}</pre>
+                <div className="bibliography-entry">
+                  <pre>{citation(p, style)}</pre>
+                  <BibliographySourceLink record={p} />
+                </div>
                 <button
                   className="icon-btn"
                   aria-label={"Remove citation " + (i + 1)}
@@ -2608,10 +2629,16 @@ function Citations() {
             >
               Download
             </Button>
+            <Button icon={ExternalLink} disabled={!selected.length} onClick={() =>
+              download("bibliography.html", bibliographyHtml(selected, style), "text/html")
+            }>
+              Download linked HTML
+            </Button>
           </div>
           <p className="tool-note">
             Citation formats are a starting point. Check metadata and your
-            institution’s style requirements.
+            institution’s style requirements. Links open publisher or source records;
+            full-text access depends on the source. The HTML export keeps clickable links.
           </p>
         </aside>
       </div>

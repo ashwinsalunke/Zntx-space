@@ -37,3 +37,9 @@ Successful searches are cached for five minutes with at most 100 entries. Concur
 On 2026-10-16, all four router endpoints returned HTTP 200 against live upstream services: aspirin resolved to PubChem CID 2244 and ChEMBL CHEMBL25 with a recorded cyclooxygenase mechanism; metformin returned registered studies; aspirin returned FAERS reaction aggregates and three label records; semaglutide/obesity search returned PubMed abstracts with DOI and PMID provenance. Result counts are live and change over time.
 
 `node --test tests/biomedical.test.js` covers normalization/provenance, empty and missing evidence, bounded cache eviction, query validation, concurrent deduplication, optional provider failure, retry bounds, malformed provider responses, and FAERS count interpretation. Tests use injected upstream responses and require no network access.
+
+## Bibliography source links
+
+Bibliography lookup uses Crossref `query.bibliographic` across registered record types, including books and chapters. A supplied DOI uses the exact `/works/{doi}` endpoint. Exact title matches in returned records are shown first; related results keep their provider metadata. This is matching, not verification that a source supports a claim. See the [official Crossref API documentation](https://www.crossref.org/documentation/retrieve-metadata/rest-api/).
+
+Clickable references prefer a normalized DOI resolver URL, then the supplied HTTP(S) source URL, with PubMed/PMC identifier fallbacks. Missing identifiers remain unavailable. HTML bibliography downloads preserve clickable links; text, BibTeX, and RIS retain source URLs. Publisher records may still require a subscription for full text.

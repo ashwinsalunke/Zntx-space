@@ -24,7 +24,7 @@ For a built server, run `npm run build` and `npm start`, then open port 5180. Se
 - **Research Projects:** review questions and protocols, library paper selection, inclusion/exclusion decisions, evidence notes, autosave, and screening CSV export.
 - **PDF workspace:** browser-side selectable text extraction, page-linked excerpts, original PDF view, configurable AI explanations and evidence-field extraction, text/CSV exports. Supports up to 20 MB and 100 pages per PDF.
 - **Writing:** editable source-based outlines and templates, optional AI drafts, cloud-saved documents, Markdown, DOCX, LaTeX, and HTML/print-PDF exports.
-- **Citations:** APA/MLA/IEEE starting formats, BibTeX and RIS export, saved-library bibliographies. Verify metadata and style details before submission.
+- **Citations:** article/book/DOI lookup, clickable original-source links, APA/MLA/IEEE starting formats, BibTeX and RIS export, linked HTML bibliographies, and saved-library sources. Verify metadata and style details before submission.
 - **Diagrams and presentations:** editable research structures, optional AI concept maps, slide outlines, and real PowerPoint export.
 - **Text tools:** local phrase cleanup and readability statistics, plus optional model-based revision. The detector screen does not claim to determine AI authorship.
 

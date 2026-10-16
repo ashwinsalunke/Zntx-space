@@ -3,7 +3,7 @@ import express from "express";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { crossrefPaper, europePaper } from "./research.js";
+import { crossrefPaper, europePaper, crossrefRequest, rankBibliography } from "./research.js";
 import {
   storageInfo,
   workspaceToken,
@@ -101,21 +101,23 @@ app.get("/api/papers", async (req, res, next) => {
     .trim()
     .slice(0, 500);
   const source = req.query.source === "europepmc" ? "europepmc" : "crossref";
+  const allTypes = req.query.scope === "all";
   if (!q)
     return res
       .status(400)
       .json({ error: "Enter a research topic or question." });
   try {
     const token = workspaceToken(req);
-    const key = source + ":" + q;
+    const key = source + (allTypes ? ":all:" : ":articles:") + q;
     let data;
     if (cache.has(key) && Date.now() - cache.get(key).time < 300000)
       data = cache.get(key).data;
     else {
+      const lookup = crossrefRequest(q, allTypes);
       const url =
         source === "europepmc"
           ? `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=40&resultType=core`
-          : `https://api.crossref.org/works?query=${encodeURIComponent(q)}&filter=type:journal-article&rows=40`;
+          : lookup.url;
       const response = await fetch(url, {
         signal: AbortSignal.timeout(20000),
         headers: {
@@ -126,7 +128,9 @@ app.get("/api/papers", async (req, res, next) => {
       if (!response.ok)
         throw Object.assign(
           new Error(
-            `Research provider returned ${response.status}. Please try again.`,
+            source === "crossref" && lookup.exact && response.status === 404
+              ? "This DOI was not found in Crossref. It may use another registry; try searching by title."
+              : `Research provider returned ${response.status}. Please try again.`,
           ),
           { status: 502 },
         );
@@ -135,15 +139,16 @@ app.get("/api/papers", async (req, res, next) => {
         papers:
           source === "europepmc"
             ? (json.resultList?.result || []).map(europePaper)
-            : (json.message?.items || []).map(crossrefPaper),
+            : (lookup.exact ? [json.message] : json.message?.items || []).map(crossrefPaper),
         total:
           source === "europepmc"
             ? json.hitCount
-            : json.message?.["total-results"],
+            : lookup.exact ? 1 : json.message?.["total-results"],
         source: source === "europepmc" ? "Europe PMC" : "Crossref",
         query: q,
         retrievedAt: new Date().toISOString(),
       };
+      if (source === "crossref" && allTypes) data.papers = rankBibliography(data.papers, q);
       cache.set(key, { time: Date.now(), data });
       if (cache.size > 100) cache.delete(cache.keys().next().value);
     }

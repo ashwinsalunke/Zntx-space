@@ -29,7 +29,7 @@ The AI adapter was validated with controlled HTTP provider responses, including 
 
 ## Verification of version 0.2.0
 
-- 46 automated tests cover provider normalization, DOI deduplication, partial outages, metadata provenance, open full-text limits, AI validation/citation handling, real Office packages, MCP owner/read-only restrictions, PDF passage retrieval, and exports.
+- 53 automated tests cover provider normalization, DOI deduplication, partial outages, metadata provenance, open full-text limits, AI validation/citation handling, real Office packages, MCP owner/read-only restrictions, PDF passage retrieval, and exports.
 - Production build passed; PDF and new research screens are separately loaded chunks. Dependency audit reported zero vulnerabilities.
 - Applied Supabase migration to the configured project. Direct REST checks verified own-row access, other-workspace isolation, missing-token rejection, and forged-owner rejection. Supabase security advisors returned no lints at inspection time.
 - `npm run verify:cloud` passed create/read/update, cross-workspace isolation, and missing-token rejection using a disposable record that it cleaned up.
@@ -46,3 +46,9 @@ REA's final local black-theme capture at 1440 × 1000 retained zero page-error e
 Earlier local captures: desktop `ev_194672efb773e42ad6e7daef4b19fe9f5dc1bf4c9a366aad0ce3d6de0025bc87`, mobile `ev_4f859b95c4efce276107a67dd2dfd9594aadf8549a430ae4f2df15b59d7a5a52`. These predate the black-theme expansion. Bounded checks do not establish exhaustive browser or feature coverage.
 
 GitHub’s connected OAuth token rejected workflow creation because it lacks the `workflow` scope. The same configuration is included as `docs/github-actions.example.yml`; no Actions run is claimed. A repository owner can copy it to `.github/workflows/checks.yml` using a credential that permits workflows.
+
+## Bibliography follow-up
+
+Added clickable source titles and original-source links, exact DOI lookup, all-type Crossref bibliography search, normalized DOI/publisher/PubMed/PMC URL fallbacks, book/chapter export types, and a linked HTML bibliography download. Seven added tests cover exact lookup, title matching, source fallbacks, unsafe URL rejection, URL retention across citation formats, book/chapter metadata, and escaped HTML. The complete suite now has 53 passing tests; the production build passed.
+
+Browser verification resolved DOI 10.3389/fendo.2021.645563, added Safety of Semaglutide to the bibliography, downloaded HTML containing its DOI anchor, and followed the in-app bibliography link to the original Frontiers article. REA capture `ev_f96c6fd407c2eeed6c75eb0d8251cdb76ece06c9a8d777d66da721ca0869307c` shows the populated bibliography with zero page errors in the bounded scenario.
