@@ -9,14 +9,14 @@ import "./templates-workspace.css";
 const kindIcon = (kind) => kind === "Thesis & Dissertation" ? GraduationCap : kind === "Book Series" || kind === "Book Chapter" ? Library : BookOpen;
 const facets = [
   { key: "topic", label: "Topic", values: ["Medicine", "Biology", "Pharmacology", "Chemistry", "Engineering", "Social Sciences"] },
-  { key: "publisher", label: "Publisher", values: ["Zntx Space", "PLOS", "Frontiers", "BMJ"] },
+  { key: "publisher", label: "Publisher", values: ["scrapeTx", "PLOS", "Frontiers", "BMJ"] },
   { key: "university", label: "University", values: ["University of Cambridge"] },
   { key: "access", label: "Access Type", values: ["Open Access", "Not specified"] },
 ];
 const kinds = ["Journal Article", "Thesis & Dissertation", "Book Series", ...new Set(templates.map((item) => item.kind))].filter((kind, index, all) => all.indexOf(kind) === index);
 function PaperPreview({ item, large = false }) {
   return <div className={`tc-paper ${large ? "large" : ""}`} aria-hidden="true">
-    <div className="tc-paper-running">{item.kind} <span>ZNTX SPACE</span></div>
+    <div className="tc-paper-running">{item.kind} <span>SCRAPETX</span></div>
     <strong className="tc-paper-title">{item.title}</strong>
     <p className="tc-paper-author">Author name · Department or institution</p>
     {item.sections.slice(0, large ? 5 : 4).map(({ heading, prompt }) => <div className="tc-paper-section" key={heading}><b>{heading}</b><p>{prompt}</p></div>)}

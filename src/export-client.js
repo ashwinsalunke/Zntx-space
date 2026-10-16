@@ -43,7 +43,7 @@ export async function exportFile(kind, payload, { signal } = {}) {
   )?.[1];
   const name =
     fromServer?.replace(/[^a-zA-Z0-9._ -]/g, "").slice(0, 150) ||
-    `zntx-research.${extension}`;
+    `scrapetx-research.${extension}`;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

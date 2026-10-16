@@ -20,7 +20,7 @@ const toolMeta = {
   papers: { label: "Research papers", icon: BookOpen, color: "red" },
   library: { label: "My Library", icon: Library, color: "blue" },
   pubmed: { label: "PubMed", icon: FileSearch, color: "blue" },
-  ai: { label: "ScrapeTx Ai", icon: Telescope, color: "violet" },
+  ai: { label: "ScrapeTx AI", icon: Telescope, color: "violet" },
   table: { label: "Evidence table", icon: Table2, color: "orange" },
   check: { label: "Review checklist", icon: CheckCheck, color: "blue" },
   compound: { label: "PubChem compounds", icon: FlaskConical, color: "teal" },
@@ -98,7 +98,7 @@ function TaskDialog({ item, initialPreview, onClose }) {
               <>
                 <label className="workflow-source-option"><input type="checkbox" checked={useSources} onChange={(event) => { setUseSources(event.target.checked); setConfirmedInput(""); }} disabled={!eligibleSources.length} /><span>Use saved source abstracts <small>{eligibleSources.length ? `${eligibleSources.length} available · up to 16 sources` : "Save papers with abstracts to My Library first"}</small></span></label>
                 {useSources && <details className="workflow-evidence-preview"><summary>Review the {sources.length} selected sources</summary><ol>{sources.map((source, index) => <li key={index}>{source.title}</li>)}</ol><p>Only use these sources if they are relevant to this task. Long abstracts are shortened to fit the request.</p></details>}
-                <p className="workflow-field-note">Only the material you enter and the selected abstracts are sent to ScrapeTx Ai. Remove personal information from research excerpts. Review the generated draft against the original sources.</p>
+                <p className="workflow-field-note">Only the material you enter and the selected abstracts are sent to ScrapeTx AI. Remove personal information from research excerpts. Review the generated draft against the original sources.</p>
               </>
             )}
             {item.caution && <p className="workflow-field-note">{item.caution}</p>}
@@ -108,7 +108,7 @@ function TaskDialog({ item, initialPreview, onClose }) {
             </div>
           </form>
         )}
-        {!preview && isAI && confirmedInput && <AiPanel task={item.aiTask || "draft"} prompt={workflowPrompt(item, confirmedInput)} evidence={sources} label="Run with ScrapeTx Ai" />}
+        {!preview && isAI && confirmedInput && <AiPanel task={item.aiTask || "draft"} prompt={workflowPrompt(item, confirmedInput)} evidence={sources} label="Run with ScrapeTx AI" />}
       </div>
     </Modal>
   );

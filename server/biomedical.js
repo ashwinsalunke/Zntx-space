@@ -193,7 +193,7 @@ export function createBiomedicalRouter({
         const response = await fetchImpl(url, {
           headers: {
             Accept: text ? "application/xml" : "application/json",
-            "User-Agent": "ZntxSpace/0.2 (research evidence workspace)",
+            "User-Agent": "scrapeTx/0.2 (research evidence workspace)",
           },
           signal: AbortSignal.timeout(timeoutMs),
         });

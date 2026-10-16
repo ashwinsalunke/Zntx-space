@@ -364,7 +364,7 @@ export function createDiscoveryRouter({
         const response = await fetchImpl(url, {
           headers: {
             Accept: xml ? "application/xml" : "application/json",
-            "User-Agent": "ZntxSpace/0.2 (public evidence discovery)",
+            "User-Agent": "scrapeTx/0.2 (public evidence discovery)",
           },
           signal: AbortSignal.timeout(timeoutMs),
           redirect: "error",

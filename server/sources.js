@@ -215,7 +215,7 @@ export function externalSearchUrl(source, query) {
 
 export function sourceCatalog() {
   return [
-    { id: "deep", name: "Deep Research", mode: "internal", supported: true, endpoint: "/api/discovery/search", reason: "Multi-source Crossref and Europe PMC discovery with source-linked synthesis when ScrapeTx Ai is configured." },
+    { id: "deep", name: "Deep Research", mode: "internal", supported: true, endpoint: "/api/discovery/search", reason: "Multi-source Crossref and Europe PMC discovery with source-linked synthesis when ScrapeTx AI is configured." },
     { id: "zotero", name: "Zotero Library", mode: "connector", supported: true, requiresCredential: true, statusEndpoint: "/api/library-sync/status", endpoint: "/api/library-sync/zotero/sync", reason: "Connect a permitted Zotero library key in Integrations, then pull new and updated references. RIS import is also available." },
     { id: "mendeley", name: "Mendeley Library", mode: "connector", supported: true, requiresCredential: true, statusEndpoint: "/api/library-sync/status", endpoint: "/api/library-sync/mendeley/sync", reason: "Register a Mendeley application and authorize your account in Integrations, then pull new and updated references. RIS import is also available." },
     { id: "pubmed", name: "PubMed", mode: "internal", supported: true, endpoint: "/api/biomedical/pubmed", reason: "NCBI PubMed records and available abstracts." },
@@ -264,7 +264,7 @@ export function createSourcesRouter({
       try {
         const response = await fetchImpl(url, {
           ...init,
-          headers: { Accept: source === "arxiv" ? "application/atom+xml" : "application/json", "User-Agent": "ZntxSpace/0.3 (public research metadata)", ...init.headers },
+          headers: { Accept: source === "arxiv" ? "application/atom+xml" : "application/json", "User-Agent": "scrapeTx/0.3 (public research metadata)", ...init.headers },
           signal: AbortSignal.timeout(timeoutMs),
           redirect: "error",
         });

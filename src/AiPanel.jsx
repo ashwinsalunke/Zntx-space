@@ -203,12 +203,12 @@ export default function AiPanel({
   return (
     <section
       className="zai-panel"
-      aria-label="ScrapeTx Ai research assistant"
+      aria-label="ScrapeTx AI research assistant"
       aria-busy={busy}
     >
       <div className="zai-header">
         <span className="zai-heading">
-          <Sparkles size={17} aria-hidden="true" /> ScrapeTx Ai
+          <Sparkles size={17} aria-hidden="true" /> ScrapeTx AI
         </span>
         {configured && <span className="zai-provider">Ready to help</span>}
       </div>
@@ -313,7 +313,7 @@ export default function AiPanel({
         <div className="zai-result">
           <div className="zai-result-header">
             <strong>{result.diagram?.title || "Research response"}</strong>
-            <span>ScrapeTx Ai</span>
+            <span>ScrapeTx AI</span>
           </div>
           <div className="zai-output">
             <ResearchText text={result.text} citations={sources} prefix={prefix} />
@@ -377,7 +377,7 @@ export default function AiPanel({
           <div className="zai-controls">
             <button className="zai-secondary" onClick={async () => {
               try {
-                await saveNote({title: result.diagram?.title || prompt.slice(0,100), content: exportText(result), citations: result.citations || [], assistant: "ScrapeTx Ai"});
+                await saveNote({title: result.diagram?.title || prompt.slice(0,100), content: exportText(result), citations: result.citations || [], assistant: "ScrapeTx AI"});
                 setActionMessage("Saved to My Library.");
               } catch (e) { setActionMessage(e.message); }
             }}><Bookmark size={15} aria-hidden="true"/> Save to library</button>

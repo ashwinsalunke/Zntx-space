@@ -1,6 +1,8 @@
-# Zntx Space
+# scrapeTx
 
-An open research workspace for literature review and pharmaceutical evidence. Bold locally bundled Inter typography, white and gray surfaces, black controls, and colored tool markers. Independent source code under the MIT license.
+An open research workspace for literature review and pharmaceutical evidence. The scrapeTx identity uses ivory surfaces, charcoal text, sage accents, Satoshi typography with a locally bundled Geist fallback, and colored research-source icons. Independent source code under the MIT license.
+
+The [brand guide](docs/brand.md) documents the supplied identity, typography, interface components, and motion behavior.
 
 ## Start
 
@@ -37,9 +39,9 @@ The home search offers 13 source shortcuts in a horizontal rail, with Show all t
 - **Diagrams and presentations:** editable research structures, optional AI concept maps, slide outlines, and real PowerPoint export.
 - **Text tools:** local phrase cleanup and readability statistics, plus optional model-based revision. The detector screen does not claim to determine AI authorship.
 
-## ScrapeTx Ai and integrations
+## ScrapeTx AI and integrations
 
-ScrapeTx Ai supports Google's native generation API and OpenAI-compatible endpoints. Set `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` in the ignored `.env.local` file; compatible endpoints also use `AI_BASE_URL`. Deployment identifiers and keys stay on the server, and the interface displays only ScrapeTx Ai. The assistant cites supplied evidence and rejects unknown citation identifiers. The repository contains no working AI credential. See [AI setup](docs/ai-setup.md).
+ScrapeTx AI supports Google's native generation API and OpenAI-compatible endpoints. Set `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` in the ignored `.env.local` file; compatible endpoints also use `AI_BASE_URL`. Deployment identifiers and keys stay on the server, and the interface displays only ScrapeTx AI. The assistant cites supplied evidence and rejects unknown citation identifiers. The repository contains no working AI credential. See [AI setup](docs/ai-setup.md).
 
 The Integrations page provides SerpAPI account-key validation, Zotero incremental reference pulls, Mendeley OAuth and reference pulls, workspace backups, private workspace transfer, source status, and configurable Streamable HTTP MCP servers. Search/library credentials are encrypted on this server and scoped to each browser workspace. Connectors require the user's provider credentials/consent and are not automatically authorized by installing this repository. MCP servers remain restricted to an owner workspace hash and explicit read-only calls. See [connection setup and research-data access](docs/connections-and-verification.md).
 
@@ -64,6 +66,6 @@ Tests cover provider normalization, honest source failures, DOI deduplication, p
 
 ## Scope
 
-Zntx Space is an independent application, not SciSpace source code or access to its proprietary services. It does not include the SciSpace private corpus, unrestricted Google Scholar scraping, commercial plagiarism or AI-detection engines, OCR, all citation styles, all languages, or a guaranteed systematic review. Public source coverage and licenses apply; paywalled full texts are not bypassed. AI model output requires source verification.
+scrapeTx is an independent application, not SciSpace source code or access to its proprietary services. It does not include the SciSpace private corpus, unrestricted Google Scholar scraping, commercial plagiarism or AI-detection engines, OCR, all citation styles, all languages, or a guaranteed systematic review. Public source coverage and licenses apply; paywalled full texts are not bypassed. AI model output requires source verification.
 
 The repository is prepared for self-hosting. Public web hosting is not provisioned. Self-hosted forks need their own Supabase and AI settings; local development on this Mac has been verified with the supplied connection.

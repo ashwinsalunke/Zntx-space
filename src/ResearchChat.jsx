@@ -291,7 +291,7 @@ export default function ResearchChat() {
                   ))}
                 </ol>
                 <small>
-                  ScrapeTx Ai ·{" "}
+                  ScrapeTx AI ·{" "}
                   {new Date(turn.ai.generatedAt).toLocaleString()}
                 </small>
               </div>

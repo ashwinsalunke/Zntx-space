@@ -140,7 +140,7 @@ app.get("/api/papers", async (req, res, next) => {
       const response = await fetch(url, {
         signal: AbortSignal.timeout(20000),
         headers: {
-          "User-Agent": "ZntxSpace/0.2 (open-source research workspace)",
+          "User-Agent": "scrapeTx/0.2 (open-source research workspace)",
           Accept: "application/json",
         },
       });
@@ -304,7 +304,7 @@ const port = Number(process.env.PORT) || 5180;
 const host = process.env.HOST || "127.0.0.1";
 app
   .listen(port, host, () =>
-    console.log(`Zntx Space: http://${host}:${port} · ${storageInfo.provider}`),
+    console.log(`scrapeTx: http://${host}:${port} · ${storageInfo.provider}`),
   )
   .on("error", (e) => {
     console.error(`Unable to start server: ${e.message}`);

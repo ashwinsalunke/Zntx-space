@@ -77,7 +77,10 @@ import {
   RotateCcw,
   CheckCheck,
   ShieldCheck,
+  Bot,
+  Database,
 } from "lucide-react";
+import BrandLogo from "./Brand.jsx";
 import { api, download, citation, csv, excerpt, wordCount, sourceUrl, bibliographyHtml } from "./lib.js";
 import { relevantPassages } from "../server/research.js";
 import AiPanel from "./AiPanel.jsx";
@@ -103,7 +106,7 @@ const Ctx = createContext();
 export const useApp = () => useContext(Ctx);
 const navigation = [
   ["/", Home, "Home"],
-  ["/agents", Shapes, "Agent Gallery"],
+  ["/agents", Network, "Agent Gallery"],
   ["/automations", Clock, "Research Watches"],
   ["/templates", Files, "Templates"],
   ["/chat-pdf", MessageSquare, "Chat with PDF"],
@@ -111,23 +114,18 @@ const navigation = [
   ["/pharma", FlaskConical, "Pharma Research"],
   ["/verification", ShieldCheck, "Source Checks"],
   ["/projects", FolderOpen, "Research Projects"],
-  ["/chat", MessageSquare, "Research Agent"],
+  ["/chat", Bot, "Research Agent"],
   ["/ai-writer", PenLine, "AI Writer"],
-  ["/concepts", Shapes, "Find Topics"],
+  ["/concepts", Search, "Find Topics"],
   ["/paraphraser", ScanText, "Paraphraser"],
   ["/citation-generator", Quote, "Citation Generator"],
-  ["/extract-data", Zap, "Extract Data"],
+  ["/extract-data", Database, "Extract Data"],
   ["/ai-detector", ScanText, "AI Detector"],
   ["/ai-humanizer", Sparkles, "AI Humanizer"],
   ["/integrations", Settings2, "Integrations"],
 ];
 function Logo({ full = true }) {
-  return (
-    <span className="logo">
-      <img src="/logo.svg" alt="" />
-      {full && <span>ZNTX SPACE</span>}
-    </span>
-  );
+  return <BrandLogo compact={!full} />;
 }
 export function Button({
   children,
@@ -246,7 +244,7 @@ export default function App() {
     setMobile(false);
     document.querySelector("main")?.scrollTo(0, 0);
     window.scrollTo(0, 0);
-    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation" }[location.pathname] || "Research workspace"} · Zntx Space`;
+    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation" }[location.pathname] || "Research workspace"} · scrapeTx`;
   }, [location.pathname]);
   const savePaper = async (p) => {
     try {
@@ -310,8 +308,8 @@ export default function App() {
           inert={isNarrow && !mobile ? true : undefined}
         >
           <div className="sidebar-brand">
-            <Link to="/" aria-label="Zntx Space home">
-              <Logo full={!collapsed} />
+            <Link to="/" aria-label="scrapeTx home">
+              <Logo full={!collapsed || isNarrow} />
             </Link>
             <button
               className="icon-btn collapse-btn"
@@ -321,17 +319,8 @@ export default function App() {
               <PanelLeft size={17} />
             </button>
           </div>
-          <Link
-            className="new-chat"
-            to="/"
-            onClick={() => navigate("/", { state: { reset: Date.now() } })}
-            title="New Chat"
-          >
-            <Plus size={17} />
-            <span>New Chat</span>
-          </Link>
-          <nav>
-            {navigation.map(([path, Icon, label]) => (
+          <div className="sidebar-scroll"><nav aria-label="Research tools">
+            {navigation.slice(0, 15).map(([path, Icon, label]) => (
               <NavLink
                 end={path === "/"}
                 key={path}
@@ -346,6 +335,8 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
+          <details className="sidebar-utilities" open={["/ai-detector", "/ai-humanizer", "/integrations", "/library"].includes(location.pathname) || undefined}><summary><MoreHorizontal size={18} /><span>More tools</span><ChevronDown size={14}/></summary>
+            {navigation.slice(15).map(([path, Icon, label]) => <NavLink key={path} to={path} title={collapsed ? label : undefined} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.65}/><span>{label}</span></NavLink>)}
           <div className="sidebar-secondary">
             <NavLink to="/library" className="nav-item" title="My Library">
               <Library size={17} />
@@ -378,15 +369,9 @@ export default function App() {
               </div>
             )}
           </div>
+          </details></div>
           <div className="sidebar-bottom">
-            <button className="profile" onClick={() => setStatus(true)}>
-              <span className="avatar">A</span>
-              <span className="profile-copy">
-                <b>Your research workspace</b>
-                <small>No login needed</small>
-              </span>
-              <MoreHorizontal size={17} />
-            </button>
+            <Link className="sidebar-connections" to="/integrations" title="Tools and connections"><span className="sidebar-connection-icon"><Settings2 size={20}/></span><span><b>Tools & connections</b><small>Manage your research sources<br/>and connected services.</small></span><ChevronRight size={17}/></Link>
           </div>
         </aside>
         <main
@@ -408,7 +393,7 @@ export default function App() {
                 <Link
                   className="mobile-brand"
                   to="/"
-                  aria-label="Zntx Space home"
+                  aria-label="scrapeTx home"
                 >
                   <Logo full={false} />
                 </Link>
@@ -437,6 +422,7 @@ export default function App() {
               >
                 Research workspace
               </button>
+              <button className="workspace-avatar" aria-label="Workspace information" onClick={() => setStatus(true)}>S</button>
             </div>
           </header>
           <Suspense
@@ -514,7 +500,7 @@ export default function App() {
           </div>
         )}
         {help && (
-          <Modal title="Welcome to Zntx Space" onClose={() => setHelp(false)}>
+          <Modal title="Welcome to scrapeTx" onClose={() => setHelp(false)}>
             <div className="modal-body">
               <p>A little more space for your next big idea.</p>
               <div className="help-list">
@@ -567,7 +553,7 @@ export default function App() {
             <div className="modal-body">
               <div className="status-row">
                 <span>Workspace</span>
-                <b>Zntx Space</b>
+                <b>scrapeTx</b>
               </div>
               <div className="status-row">
                 <span>Access</span>
@@ -696,6 +682,7 @@ export function Composer({
               setTools(!tools);
             }}
           >
+            <Sparkles size={18} className="composer-mode-icon" aria-hidden="true" />
             <span className="composer-tool-label">{mode === "search"
               ? researchModes.find((item) => item.id === researchMode)?.title || "Tools"
               : quickActions.find((q) => q[2] === mode)?.[0] || "Tools"}</span>
@@ -728,7 +715,7 @@ export function Composer({
               ))}
             </div>
           )}
-          <span className="composer-assistant"><Sparkles size={14} aria-hidden="true"/> ScrapeTx Ai</span>
+          <span className="composer-assistant"><Sparkles size={14} aria-hidden="true"/> ScrapeTx AI</span>
         </div>
         <button
           type="button"
@@ -873,9 +860,9 @@ function ResearchPage() {
   };
   const exportPapers = () => {
     const values = selected.length ? papers.filter((p) => selected.includes(p.id)) : papers;
-    if (exportFormat === "CSV") download("zntx-research.csv", csv(values), "text/csv");
-    else if (exportFormat === "HTML") download("zntx-bibliography.html", bibliographyHtml(values), "text/html");
-    else download(`zntx-research.${exportFormat === "RIS" ? "ris" : "bib"}`, values.map((p) => citation(p, exportFormat)).join("\n\n"));
+    if (exportFormat === "CSV") download("scrapetx-research.csv", csv(values), "text/csv");
+    else if (exportFormat === "HTML") download("scrapetx-bibliography.html", bibliographyHtml(values), "text/html");
+    else download(`scrapetx-research.${exportFormat === "RIS" ? "ris" : "bib"}`, values.map((p) => citation(p, exportFormat)).join("\n\n"));
     notify(`${values.length} ${selected.length ? "selected " : ""}sources exported.`);
   };
   const saveSearch = async () => {
@@ -1119,7 +1106,7 @@ function ResearchPage() {
               icon={Download}
               onClick={() =>
                 download(
-                  "zntx-comparison.csv",
+                  "scrapetx-comparison.csv",
                   csv(papers.filter((p) => selected.includes(p.id))),
                   "text/csv",
                 )
@@ -2165,7 +2152,7 @@ function TextTool({ kind }) {
                 </Button>
                 <Button
                   icon={Download}
-                  onClick={() => download("zntx-" + kind + ".txt", output)}
+                  onClick={() => download("scrapetx-" + kind + ".txt", output)}
                 >
                   Download
                 </Button>
@@ -2351,7 +2338,7 @@ function DiagramTool({ slides = false }) {
                 ))}
               </div>
               <div className="slide-canvas">
-                <span>ZNTX SPACE / RESEARCH PRESENTATION</span>
+                <span>SCRAPETX / RESEARCH PRESENTATION</span>
                 <h2>{deck[step]}</h2>
                 <p>{done}</p>
                 <textarea

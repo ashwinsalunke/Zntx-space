@@ -91,7 +91,7 @@ export function bibliographyHtml(papers, style = "APA") {
     const url = sourceUrl(p);
     return `<li><p>${escape(citation(p, style))}</p>${url ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">Open original source — ${escape(p.title)}</a>` : '<span>Source link unavailable</span>'}</li>`;
   }).join("\n");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zntx Space bibliography</title><style>body{font:16px/1.7 system-ui,sans-serif;max-width:850px;margin:48px auto;padding:0 24px;color:#171717}li{margin-bottom:28px;overflow-wrap:anywhere}p{white-space:pre-wrap}a{color:#171717;text-underline-offset:3px}</style></head><body><h1>Bibliography</h1><p>${escape(style)} · Exported from Zntx Space</p><ol>${entries}</ol></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>scrapeTx bibliography</title><style>body{font:16px/1.7 system-ui,sans-serif;max-width:850px;margin:48px auto;padding:0 24px;color:#171717}li{margin-bottom:28px;overflow-wrap:anywhere}p{white-space:pre-wrap}a{color:#171717;text-underline-offset:3px}</style></head><body><h1>Bibliography</h1><p>${escape(style)} · Exported from scrapeTx</p><ol>${entries}</ol></body></html>`;
 }
 export function csv(papers) {
   const cell = (s) => {

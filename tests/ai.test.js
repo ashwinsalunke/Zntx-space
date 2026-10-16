@@ -51,9 +51,9 @@ const nativeCompletion = (text, extra = {}) =>
     { headers: { "Content-Type": "application/json" } },
   );
 const assertPublicIdentity = (body) => {
-  assert.equal(body.assistant, "ScrapeTx Ai");
-  assert.equal(body.provider, "ScrapeTx Ai");
-  assert.equal(body.model, "ScrapeTx Ai");
+  assert.equal(body.assistant, "ScrapeTx AI");
+  assert.equal(body.provider, "ScrapeTx AI");
+  assert.equal(body.model, "ScrapeTx AI");
   for (const privateValue of [
     env.AI_MODEL,
     googleEnv.AI_MODEL,
@@ -218,7 +218,7 @@ test("real provider request uses server settings and keeps supplied evidence cit
 });
 
 test("native AI configuration fixes the Google origin and validates deployment identifiers", () => {
-  assert.equal(AI_ASSISTANT_NAME, "ScrapeTx Ai");
+  assert.equal(AI_ASSISTANT_NAME, "ScrapeTx AI");
   const config = aiConfig({
     ...googleEnv,
     AI_BASE_URL: "http://attacker.invalid",
@@ -340,7 +340,7 @@ test("native generateContent uses header authentication, separate system instruc
   );
   assert.match(
     sent.body.systemInstruction.parts[0].text,
-    /You are ScrapeTx Ai/,
+    /You are ScrapeTx AI/,
   );
   assert.match(
     sent.body.systemInstruction.parts[0].text,
@@ -563,7 +563,7 @@ test("two primary capacity failures permit exactly one native fallback with iden
   }
   assert.ok(
     body.warnings.includes(
-      "ScrapeTx Ai used an alternate connection because the primary service was busy.",
+      "ScrapeTx AI used an alternate connection because the primary service was busy.",
     ),
   );
   assert.deepEqual(
@@ -688,7 +688,7 @@ test("provider response bounds cover chunked payloads and remove unexpected cred
   assertPublicIdentity(result);
 });
 
-test("request parser failures also identify ScrapeTx Ai", async (t) => {
+test("request parser failures also identify ScrapeTx AI", async (t) => {
   const api = await serve(t, { env: googleEnv });
   for (const [raw, status] of [
     ["{broken", 400],

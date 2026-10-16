@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="M20 21 35 29 20 38 5 29Z" fill="#f8b578"/><path d="m20 12 15 8-15 9L5 20Z" fill="#c4dfeb"/><path d="M20 3 35 11 20 20 5 11Z" fill="#78b9d1"/><path d="m15 9 10 0-9 5h10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <title>scrapeTx</title>
+  <rect width="80" height="80" rx="21" fill="#17191D"/>
+  <path d="M15 24h33v8H36v32h-9V32H15z" fill="#F1F0EC"/>
+  <path d="M39 39h10l6 9 6-9h10L60 54l11 15H61l-6-9-6 9H39l11-15z" fill="#F1F0EC" transform="translate(-3 -5)"/>
+  <path d="M55 17h12v12" stroke="#8DA28F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

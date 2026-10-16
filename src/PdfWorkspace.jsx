@@ -28,7 +28,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 const samplePages = [
   {
     page: 1,
-    text: "A practical guide to reading research. This is an original demonstration document for Zntx Space, not a published scientific study. A focused research question helps define the scope of a literature search. Begin by identifying the population, concept, and context that matter to the question. Search terms should include the main concepts and their synonyms. Keep a record of each database, query, date, and number of results so that the search can be understood and repeated. Screening begins with the title and abstract. Papers that match the question can then be reviewed in full.",
+    text: "A practical guide to reading research. This is an original demonstration document for scrapeTx, not a published scientific study. A focused research question helps define the scope of a literature search. Begin by identifying the population, concept, and context that matter to the question. Search terms should include the main concepts and their synonyms. Keep a record of each database, query, date, and number of results so that the search can be understood and repeated. Screening begins with the title and abstract. Papers that match the question can then be reviewed in full.",
   },
   {
     page: 2,
@@ -157,7 +157,7 @@ export default function PdfWorkspace({ extract = false }) {
     requestAnimationFrame(() =>
       left.current
         ?.querySelector(`[data-page="${n}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        ?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" }),
     );
   };
   const exportPages = () => {
@@ -347,7 +347,7 @@ export default function PdfWorkspace({ extract = false }) {
                 >
                   <div className="document-page-label">
                     {doc.sample
-                      ? "ZNTX SPACE / SAMPLE DOCUMENT"
+                      ? "SCRAPETX / SAMPLE DOCUMENT"
                       : "EXTRACTED DOCUMENT TEXT"}
                     <span>{p.page}</span>
                   </div>
@@ -478,7 +478,7 @@ export default function PdfWorkspace({ extract = false }) {
                 {messages.map((m, i) => (
                   <div className={`chat-message ${m.role}`} key={i}>
                     {m.role === "assistant" && (
-                      <img src="/logo.svg" alt="Zntx Space" />
+                      <img src="/logo.svg" alt="scrapeTx" />
                     )}
                     <div>
                       <p>{m.text}</p>

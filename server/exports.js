@@ -349,9 +349,9 @@ async function renderDocx(title, blocks) {
   }
   return Packer.toBuffer(
     new Document({
-      creator: "Zntx Space",
+      creator: "scrapeTx",
       title,
-      description: "Research document exported from Zntx Space",
+      description: "Research document exported from scrapeTx",
       styles: {
         default: {
           document: {
@@ -413,10 +413,10 @@ function wrapLines(text, width = 78) {
 async function renderSlides(title, slides) {
   const deck = new pptxgen();
   deck.layout = "LAYOUT_WIDE";
-  deck.author = "Zntx Space";
+  deck.author = "scrapeTx";
   deck.subject = "Research presentation";
   deck.title = title;
-  deck.company = "Zntx Space";
+  deck.company = "scrapeTx";
   deck.lang = "en-US";
   deck.theme = { headFontFace: "Arial", bodyFontFace: "Arial", lang: "en-US" };
   let slideNumber = 0;
@@ -460,7 +460,7 @@ async function renderSlides(title, slides) {
         paraSpaceAfterPt: 8,
         breakLine: false,
       });
-      slide.addText("ZNTX SPACE  /  RESEARCH", {
+      slide.addText("SCRAPETX  /  RESEARCH", {
         x: 0.7,
         y: 7.03,
         w: 8.5,

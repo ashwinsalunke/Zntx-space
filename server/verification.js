@@ -130,7 +130,7 @@ export function createVerificationRouter({ fetchImpl = globalThis.fetch, timeout
   async function upstream(provider, url, { xml = false } = {}) {
     const run = async () => {
       try {
-        const response = await fetchImpl(url, { redirect: "error", signal: AbortSignal.timeout(Math.max(1, Math.min(30000, timeoutMs))), headers: { Accept: xml ? "application/xml,text/xml" : "application/json", "User-Agent": "ZntxSpace/0.3 (primary-source metadata checks)" } });
+        const response = await fetchImpl(url, { redirect: "error", signal: AbortSignal.timeout(Math.max(1, Math.min(30000, timeoutMs))), headers: { Accept: xml ? "application/xml,text/xml" : "application/json", "User-Agent": "scrapeTx/0.3 (primary-source metadata checks)" } });
         if (response.status === 404) { await response.body?.cancel(); return null; }
         if (!response.ok) { await response.body?.cancel(); throw new VerificationError(`${provider} is unavailable (HTTP ${response.status}).`, response.status === 429 ? "PROVIDER_RATE_LIMIT" : "PROVIDER_HTTP_ERROR"); }
         if (Number(response.headers.get("content-length")) > maxResponseBytes) { await response.body?.cancel(); throw new VerificationError(`${provider} returned an oversized response.`, "RESPONSE_TOO_LARGE"); }

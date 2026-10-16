@@ -338,7 +338,7 @@ export function createLibrarySyncRouter({ fetchImpl = fetch, getSecret, setSecre
     states.set(state, { token, expiresAt: now() + stateTtlMs, attemptId });
     const url = new URL(`${MENDELEY}/oauth/authorize`);
     url.search = new URLSearchParams({ client_id: clientId, redirect_uri: callbackUrl, response_type: "code", scope: "all", state }).toString();
-    res.json({ provider: "mendeley", authorizationUrl: url.href, callbackUrl, expiresAt: new Date(now() + stateTtlMs).toISOString(), mode: MODE, note: "Mendeley requires account consent with its all scope. Zntx Space only reads references; it does not write to your Mendeley library." });
+    res.json({ provider: "mendeley", authorizationUrl: url.href, callbackUrl, expiresAt: new Date(now() + stateTtlMs).toISOString(), mode: MODE, note: "Mendeley requires account consent with its all scope. scrapeTx only reads references; it does not write to your Mendeley library." });
   }, "mendeley"));
   router.get("/mendeley/callback", async (req, res) => {
     const state = typeof req.query.state === "string" ? req.query.state : "";

@@ -73,7 +73,7 @@ export default function Integrations() {
       ])
         data.collections[collection] = await api("/api/records/" + collection);
       download(
-        "zntx-workspace-backup.json",
+        "scrapetx-workspace-backup.json",
         JSON.stringify(data, null, 2),
         "application/json",
       );
@@ -89,7 +89,7 @@ export default function Integrations() {
     try {
       const data = JSON.parse(await file.text());
       if (data.version !== 1 || !data.collections)
-        throw Error("Not a Zntx Space workspace backup.");
+        throw Error("Not a scrapeTx workspace backup.");
       let count = 0;
       for (const collection of [
         "papers",
@@ -220,7 +220,7 @@ export default function Integrations() {
           <span className="integration-icon">
             <Server size={23} />
           </span>
-          <h2>ScrapeTx Ai</h2>
+          <h2>ScrapeTx AI</h2>
           <span
             className={`integration-state ${ai?.configured ? "" : "pending"}`}
           >
@@ -342,7 +342,7 @@ export default function Integrations() {
           </span>
           <h2>Open research, clear boundaries</h2>
           <p>
-            Zntx Space uses independent implementations and public sources.
+            scrapeTx uses independent implementations and public sources.
             Subscription-only source access, proprietary search indexes,
             plagiarism databases, and commercial AI detection are not included.
           </p>

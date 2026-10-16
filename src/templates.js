@@ -31,7 +31,7 @@ const proposal = [
 ];
 const make = (id, title, kind, description, topics, sections, extra = {}) => ({
   id, title, kind, description, topics, sections,
-  publisher: "Zntx Space", university: "", access: "Not specified", ranking: null,
+  publisher: "scrapeTx", university: "", access: "Not specified", ranking: null,
   origin: "Original writing starter", ...extra,
 });
 
