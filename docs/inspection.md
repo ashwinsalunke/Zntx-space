@@ -73,3 +73,12 @@ Verification on 16 October 2026:
 - A live PyPI source page and the ClinicalTrials.gov shortcut at 768 pixels also retained zero page errors: `ev_da0ee083a09d5705286ac5ed9696b096bdca060f561e137812ad24758339beb8` and `ev_03e779e97c38a4f18b540b9553724e7cff2ce17bdb34b72490868a1a45d1b9f0`.
 
 These bounded checks do not establish exhaustive SciSpace Pro parity or recover any private SciSpace backend. Google searches open original sites; Mendeley synchronization, private Zotero credentials, and additional personal MCP servers still require their own setup. Public web hosting has not been provisioned.
+
+
+## Templates screenshot follow-up
+
+The user supplied two SciSpace template-catalog screenshots showing a filter sidebar, searchable result rows, document thumbnails, publisher/institution metadata, and Start Writing actions. The replacement catalog adopts that arrangement with black selected controls and bundled Inter, using 20 original editable starters. Kind, topic, publisher, university, and access filters are encoded in the URL. Preview structures, Markdown downloads, and writer initialization all use the same template record. Existing title-based template links remain supported.
+
+Guidance-linked starters reference [PLOS ONE](https://journals.plos.org/plosone/s/submission-guidelines), [Frontiers](https://www.frontiersin.org/guidelines/author-guidelines), [BMJ Open](https://bmjopen.bmj.com/pages/authors/), and the [Cambridge thesis submission checklist](https://www.cambridgestudents.cam.ac.uk/files/pgr_thesis_submission_checklist.pdf). These are independently written starting structures, not official publisher/university document files or compliance guarantees. Access labels describe the target journal. No invented ISSNs, journal quartiles, publisher associations, or 29,838-result count were added.
+
+The production build and 87 tests passed. A local React render check confirmed 20 rows for the full catalog, one for publisher PLOS, three for Thesis & Dissertation, and a useful empty state for an unmatched search; each displayed row produced an editor link. Live browser control was disabled in Work settings during this follow-up, so no new visual or browser-interaction verification is claimed.

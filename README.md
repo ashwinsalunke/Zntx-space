@@ -27,6 +27,7 @@ The home search offers 13 source and workflow shortcuts. Choose a source, enter 
 - **Pharma Research:** PubChem compounds and structures, exact-identity ChEMBL mechanisms, registered ClinicalTrials.gov studies, openFDA label sections and separately labelled FAERS counts, and PubMed abstracts.
 - **Research Projects:** review questions and protocols, library paper selection, inclusion/exclusion decisions, evidence notes, autosave, and screening CSV export.
 - **PDF workspace:** browser-side selectable text extraction, page-linked excerpts, original PDF view, configurable AI explanations and evidence-field extraction, text/CSV exports. Supports up to 20 MB and 100 pages per PDF.
+- **Templates:** a searchable catalog of 20 original writing starters with kind, topic, publisher, university, and access filters; document previews, Markdown downloads, and template-specific editor content. Guidance-linked entries point to official publisher/university instructions; journal rankings are not fabricated.
 - **Writing:** editable source-based outlines and templates, optional AI drafts, cloud-saved documents, Markdown, DOCX, LaTeX, and HTML/print-PDF exports.
 - **Citations:** article/book/DOI lookup, clickable original-source links, APA/MLA/IEEE starting formats, BibTeX and RIS export, linked HTML bibliographies, and saved-library sources. Verify metadata and style details before submission.
 - **Diagrams and presentations:** editable research structures, optional AI concept maps, slide outlines, and real PowerPoint export.

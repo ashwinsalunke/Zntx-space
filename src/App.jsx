@@ -81,6 +81,7 @@ import { api, download, citation, csv, excerpt, wordCount, sourceUrl, bibliograp
 import { relevantPassages } from "../server/research.js";
 import AiPanel from "./AiPanel.jsx";
 import { exportDocument, exportSlides } from "./export-client.js";
+import { templateById, templateContent } from "./templates.js";
 const PdfWorkspace = lazy(() => import("./PdfWorkspace.jsx"));
 const PharmaHub = lazy(() => import("./PharmaHub.jsx"));
 const ResearchProjects = lazy(() => import("./ResearchProjects.jsx"));
@@ -89,6 +90,7 @@ const ResearchChat = lazy(() => import("./ResearchChat.jsx"));
 const HomeWorkspace = lazy(() => import("./HomeWorkspace.jsx"));
 const LibraryWorkspace = lazy(() => import("./LibraryWorkspace.jsx"));
 const SourceWorkspace = lazy(() => import("./SourceWorkspace.jsx"));
+const TemplatesWorkspace = lazy(() => import("./TemplatesWorkspace.jsx"));
 const Ctx = createContext();
 export const useApp = () => useContext(Ctx);
 const navigation = [
@@ -449,7 +451,7 @@ export default function App() {
               <Route path="/library" element={<LibraryWorkspace />} />
               <Route path="/sources/:sourceId" element={<SourceWorkspace />} />
               <Route path="/agents" element={<Gallery />} />
-              <Route path="/templates" element={<Templates />} />
+              <Route path="/templates" element={<TemplatesWorkspace />} />
               <Route path="/chat-pdf" element={<PdfWorkspace />} />
               <Route path="/extract-data" element={<PdfWorkspace extract />} />
               <Route path="/ai-writer" element={<Writer />} />
@@ -1753,134 +1755,6 @@ function Gallery() {
     </div>
   );
 }
-const templateData = [
-  [
-    "Literature Review",
-    "Organize your sources into a clear, thematic review.",
-    "Review",
-  ],
-  ["Research Paper", "Build your paper from abstract to references.", "Paper"],
-  [
-    "Research Proposal",
-    "Frame your question, approach, and expected contribution.",
-    "Proposal",
-  ],
-  [
-    "Thesis Chapter",
-    "Start a focused chapter with a structured argument.",
-    "Thesis",
-  ],
-  ["Case Study", "Document context, observations, and analysis.", "Paper"],
-  [
-    "Conference Abstract",
-    "Give your work a concise, compelling introduction.",
-    "Abstract",
-  ],
-];
-function Templates() {
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState("All templates");
-  const { navigate } = useApp();
-  return (
-    <section className="page templates-page">
-      <div className="center-heading">
-        <span className="soft-icon">
-          <Files size={24} />
-        </span>
-        <h1>A head start for your next paper.</h1>
-        <p>Simple structures. More space for your ideas.</p>
-      </div>
-      <div className="field-with-icon">
-        <Search size={18} />
-        <input
-          aria-label="Search templates"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search templates…"
-        />
-      </div>
-      <div className="filter-chips">
-        {[
-          "All templates",
-          "Paper",
-          "Review",
-          "Proposal",
-          "Thesis",
-          "Abstract",
-        ].map((c) => (
-          <button
-            key={c}
-            className={c === category ? "active" : ""}
-            onClick={() => setCategory(c)}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-      <div className="template-grid">
-        {templateData
-          .filter(
-            (t) =>
-              (category === "All templates" || t[2] === category) &&
-              t[0].toLowerCase().includes(q.toLowerCase()),
-          )
-          .map(([t, d, c], i) => (
-            <button
-              className="template-card"
-              key={t}
-              onClick={() =>
-                navigate("/ai-writer?template=" + encodeURIComponent(t))
-              }
-            >
-              <div className={`paper-preview preview-${i}`}>
-                <div className="paper-preview-sheet">
-                  <span>RESEARCH & DISCOVERY</span>
-                  <h3>{t}</h3>
-                  <i />
-                  <i />
-                  <i />
-                  <h4>Introduction</h4>
-                  <i />
-                  <i />
-                  <i />
-                  <div className="preview-columns">
-                    <div>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                  </div>
-                  <h4>Research approach</h4>
-                  <i />
-                  <i />
-                </div>
-                <span className="preview-open">
-                  <PenLine size={14} /> Use template
-                </span>
-              </div>
-              <div className="template-caption">
-                <span className="tag">{c}</span>
-                <h3>{t}</h3>
-                <p>{d}</p>
-              </div>
-            </button>
-          ))}
-      </div>
-      {!templateData.some(
-        (t) =>
-          (category === "All templates" || t[2] === category) &&
-          t[0].toLowerCase().includes(q.toLowerCase()),
-      ) && <Empty title="No templates found">Try another search.</Empty>}
-    </section>
-  );
-}
 function Writer() {
   const [params] = useSearchParams();
   const { notify, library } = useApp();
@@ -1888,7 +1762,7 @@ function Writer() {
   const [exportFormat, setExportFormat] = useState("docx");
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [title, setTitle] = useState(
-    params.get("template") || "Untitled document",
+    templateById(params.get("template"))?.title || params.get("template") || "Untitled document",
   );
   const [content, setContent] = useState("");
   const [id, setId] = useState(() => crypto.randomUUID());
@@ -1902,9 +1776,8 @@ function Writer() {
       .catch((e) => notify(e.message, true));
     const t = params.get("template");
     if (t) {
-      setContent(
-        `# ${t}\n\n## Introduction\nDescribe your topic and why it matters.\n\n## Research question\nState the specific question this work explores.\n\n## Approach\nOutline how you will find and assess evidence.\n\n## Discussion\nCompare the sources, surface disagreements, and identify limitations.\n\n## Conclusion\nSummarize the contribution and open questions.\n\n## References\nAdd your verified sources here.`,
-      );
+      const selected = templateById(t);
+      setContent(selected ? templateContent(selected) : `# ${t}\n\n## Introduction\nDescribe your topic and why it matters.\n\n## Research question\nState the specific question this work explores.\n\n## Approach\nOutline how you will find and assess evidence.\n\n## Discussion\nCompare the sources, surface disagreements, and identify limitations.\n\n## Conclusion\nSummarize the contribution and open questions.\n\n## References\nAdd your verified sources here.`);
     }
   }, []);
   const generate = async () => {
