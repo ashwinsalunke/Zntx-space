@@ -20,13 +20,17 @@ import {
   MessageSquare,
   AlertCircle,
 } from "lucide-react";
-import { api, csv, download, excerpt, citation } from "./lib.js";
+import { api, csv, download, excerpt, citation, sourceUrl } from "./lib.js";
 import { useApp, Button, Empty } from "./App.jsx";
 import AiPanel, { ResearchText } from "./AiPanel.jsx";
 import "./research-chat.css";
+function reportPrompt(query, verified) {
+  return `Answer this research question using only the supplied evidence: ${query}. Compare study approaches, findings, limitations and open questions. Cite claims and explicitly identify missing evidence.${verified ? " Structure the report as Research question, Evidence summary, Claim-to-source checks, Conflicting findings, Evidence gaps, and Limitations. Identify whether each claim is directly reported in a supplied abstract or is an interpretation. Do not claim a full-text, risk-of-bias, peer-review, or external citation audit was performed. Never infer missing effect sizes or results." : ""}`;
+}
 export default function ResearchChat() {
   const { id: routeId } = useParams();
   const [params] = useSearchParams();
+  const verified = params.get("mode") === "verified";
   const navigate = useNavigate();
   const { notify, savePaper, library } = useApp();
   const [id, setId] = useState(routeId || crypto.randomUUID());
@@ -88,6 +92,7 @@ export default function ResearchChat() {
         title: nextTitle,
         turnIds: next.map((t) => t.id),
         createdAt: new Date().toISOString(),
+        mode: verified ? "verified" : "deep",
       };
       await api("/api/records/chats/" + id, {
         method: "PUT",
@@ -119,6 +124,7 @@ export default function ResearchChat() {
         type: "research-chat-turn",
         chatId: id,
         query: value.trim(),
+        mode: verified ? "verified" : "deep",
         result: data,
         createdAt: new Date().toISOString(),
       };
@@ -200,6 +206,7 @@ export default function ResearchChat() {
           </div>
           {busy && <LoaderCircle className="spin" size={18} />}
         </div>
+        {verified && <div className="report-mode-note"><CheckCircle2 size={18}/><div><strong>Verified Report</strong><p>Checks supplied citation identifiers and source links. The report uses retrieved abstracts; scientific claims still need review against the original papers.</p></div></div>}
         {loading && (
           <div className="empty" role="status">
             <LoaderCircle className="spin" /> Loading your research…
@@ -291,14 +298,15 @@ export default function ResearchChat() {
               <AiPanel
                 autoGenerate={params.get("auto") === "1"}
                 task="synthesis"
-                prompt={`Answer this research question using only the supplied evidence: ${turn.query}. Compare study approaches, findings, limitations and open questions. Cite claims and explicitly identify missing evidence.`}
+                prompt={reportPrompt(turn.query, verified || turn.mode === "verified")}
                 evidence={turn.result.papers
                   .filter((p) => p.abstract)
                   .slice(0, 8)}
-                label="Synthesize the evidence"
+                label={verified || turn.mode === "verified" ? "Build evidence report" : "Synthesize the evidence"}
                 onResult={(r) => saveSynthesis(turn, r)}
               />
             )}
+            {(verified || turn.mode === "verified") && <div className="report-source-checks"><span><CheckCircle2 size={15}/>{turn.result.papers.filter((p) => sourceUrl(p)).length} source links available</span><span>{turn.result.papers.filter((p) => p.abstract).length} abstracts available</span><span>Generated citations must match supplied IDs</span></div>}
             <div className="section-heading">
               <h3>References · {turn.result.papers.length}</h3>
               <button

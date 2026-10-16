@@ -15,7 +15,7 @@ const itemKey = (item) => `${item.kind}:${item.id}`;
 const dateValue = (item) => new Date(item.updatedAt || item.savedAt || item.createdAt || 0).getTime() || 0;
 const dateLabel = (item) => dateValue(item) ? new Date(dateValue(item)).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Saved to your workspace";
 const titleOf = (item) => item.title || item.query || "Untitled research note";
-const isResearch = (note) => note.type === "research-chat-turn";
+const isResearch = (note) => ["research-chat-turn", "literature-search"].includes(note.type);
 const cleanAuthors = (value) => Array.isArray(value) ? value.filter(Boolean).map(String) : [];
 const recordLabel = (item) => ({ compound: "Compound", "clinical-trial": "Clinical trial", "drug-label": "Drug label", dataset: "Dataset", grant: "Grant notice", software: "Software", book: "Book", "book-chapter": "Book chapter", preprint: "Preprint" }[item.type] || "Paper");
 function noteSource(note) {
@@ -132,6 +132,7 @@ function ItemDetail({ item, onClose, onEdit, onOrganize }) {
       {paper && <p className="lw-detail-meta">{cleanAuthors(item.authors).join(", ") || "Authors unavailable"}{item.year ? ` · ${item.year}` : ""}{item.journal ? ` · ${item.journal}` : ""}</p>}
       <div className="lw-detail-actions">
         {url && <a className="btn primary" href={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} />Open original source</a>}
+        {item.type === "literature-search" && <Link className="btn primary" to={"/search?"+new URLSearchParams({q:item.query,source:item.source || "crossref",filters:JSON.stringify(item.filters || {})})} onClick={onClose}><Search size={15}/>Run saved search</Link>}
         {research && item.chatId && <Link className="btn primary" to={`/chat/${encodeURIComponent(item.chatId)}`} onClick={onClose}><MessageSquare size={15} />Open research conversation</Link>}
         {!paper && !research && <Button icon={Pencil} onClick={onEdit}>Edit note</Button>}
         <Button icon={FolderPlus} onClick={onOrganize}>Collections</Button>

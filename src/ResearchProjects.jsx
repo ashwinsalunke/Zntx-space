@@ -47,9 +47,9 @@ const sourceURL = (value) => {
     return null;
   }
 };
-function CreateProject({ onClose, onCreate }) {
-  const [title, setTitle] = useState("");
-  const [question, setQuestion] = useState("");
+function CreateProject({ onClose, onCreate, initialQuestion = "" }) {
+  const [title, setTitle] = useState(initialQuestion ? initialQuestion.slice(0, 160) : "");
+  const [question, setQuestion] = useState(initialQuestion);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -328,7 +328,7 @@ export default function ResearchProjects() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(params.get("new") === "1");
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -864,7 +864,8 @@ export default function ResearchProjects() {
       )}
       {creating && (
         <CreateProject
-          onClose={() => setCreating(false)}
+          initialQuestion={params.get("q") || ""}
+          onClose={() => {setCreating(false);if(params.has("new")) {const next=new URLSearchParams(params);next.delete("new");setParams(next,{replace:true});}}}
           onCreate={createProject}
         />
       )}

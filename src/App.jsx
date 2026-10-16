@@ -82,6 +82,10 @@ import { relevantPassages } from "../server/research.js";
 import AiPanel from "./AiPanel.jsx";
 import { exportDocument, exportSlides } from "./export-client.js";
 import { templateById, templateContent } from "./templates.js";
+import { researchModes } from "./research-modes.js";
+import SearchRefinements, { SearchProcess } from "./SearchRefinements.jsx";
+import ResearchTable from "./ResearchTable.jsx";
+import { defaultResearchFilters, filterResearchPapers, normalizeResearchFilters } from "./research-filters.js";
 const PdfWorkspace = lazy(() => import("./PdfWorkspace.jsx"));
 const PharmaHub = lazy(() => import("./PharmaHub.jsx"));
 const ResearchProjects = lazy(() => import("./ResearchProjects.jsx"));
@@ -91,11 +95,14 @@ const HomeWorkspace = lazy(() => import("./HomeWorkspace.jsx"));
 const LibraryWorkspace = lazy(() => import("./LibraryWorkspace.jsx"));
 const SourceWorkspace = lazy(() => import("./SourceWorkspace.jsx"));
 const TemplatesWorkspace = lazy(() => import("./TemplatesWorkspace.jsx"));
+const AgentGallery = lazy(() => import("./AgentGallery.jsx"));
+const AutomationWorkspace = lazy(() => import("./AutomationWorkspace.jsx"));
 const Ctx = createContext();
 export const useApp = () => useContext(Ctx);
 const navigation = [
   ["/", Home, "Home"],
   ["/agents", Shapes, "Agent Gallery"],
+  ["/automations", Clock, "Research Watches"],
   ["/templates", Files, "Templates"],
   ["/chat-pdf", MessageSquare, "Chat with PDF"],
   ["/search", FileSearch, "Literature Review"],
@@ -450,7 +457,8 @@ export default function App() {
               <Route path="/chat/:id" element={<ResearchChat />} />
               <Route path="/library" element={<LibraryWorkspace />} />
               <Route path="/sources/:sourceId" element={<SourceWorkspace />} />
-              <Route path="/agents" element={<Gallery />} />
+              <Route path="/agents" element={<AgentGallery />} />
+              <Route path="/automations" element={<AutomationWorkspace />} />
               <Route path="/templates" element={<TemplatesWorkspace />} />
               <Route path="/chat-pdf" element={<PdfWorkspace />} />
               <Route path="/extract-data" element={<PdfWorkspace extract />} />
@@ -607,6 +615,8 @@ export function Composer({
   busy = false,
   mode = "search",
   setMode,
+  researchMode = "deep",
+  setResearchMode,
   placeholder = "Give me any task to work on...",
   compact = false,
 }) {
@@ -621,7 +631,9 @@ export function Composer({
       }
     };
     document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
+    const escape = (e) => { if(e.key === "Escape") setTools(false); };
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape); };
   }, []);
   const speech = () => {
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -680,15 +692,23 @@ export function Composer({
               setTools(!tools);
             }}
           >
-            {mode === "search"
-              ? "Tools"
-              : quickActions.find((q) => q[2] === mode)?.[0] || "Tools"}
+            <span className="composer-tool-label">{mode === "search"
+              ? researchModes.find((item) => item.id === researchMode)?.title || "Tools"
+              : quickActions.find((q) => q[2] === mode)?.[0] || "Tools"}</span>
             <ChevronDown size={13} />
           </button>
           {tools && (
-            <div className="popover tool-popover">
-              <span className="section-label">Choose a research tool</span>
-              {quickActions.map(([label, Icon, id]) => (
+            <div className="popover tool-popover research-tools-popover">
+              <span className="section-label">Select tools for your research</span>
+              {setResearchMode && researchModes.map((item, index) => {
+                const Icon = [Search, Atom, CheckCheck, FlaskConical][index];
+                return <button key={item.id} type="button" aria-pressed={mode === "search" && researchMode === item.id}
+                  onClick={() => {setResearchMode(item.id);setMode?.("search");setTools(false);}}>
+                  <span className={`research-tool-icon tool-${item.id}`}><Icon size={20}/></span><span><b>{item.title}</b><small>{item.description}</small></span>
+                  {mode === "search" && researchMode === item.id && <Check size={16}/>}</button>;
+              })}
+              {setResearchMode && <span className="section-label tool-create-label">Create & explore</span>}
+              {quickActions.filter((item) => !setResearchMode || !["search", "review"].includes(item[2])).map(([label, Icon, id]) => (
                 <button
                   key={id}
                   type="button"
@@ -730,6 +750,8 @@ export function Composer({
   );
 }
 function SearchForm({ q, setQ, search, source, setSource, busy }) {
+  const { history } = useApp();
+  const recent = history.filter((item,index,items) => item.query && items.findIndex((other) => other.query === item.query) === index).slice(0,8);
   return (
     <form
       className="search-form"
@@ -744,10 +766,12 @@ function SearchForm({ q, setQ, search, source, setSource, busy }) {
       <Search size={19} />
       <input
         id="research-query"
+        list="research-recent-queries"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Ask a research question or search for papers…"
       />
+      <datalist id="research-recent-queries">{recent.map((item) => <option key={item.id} value={item.query}/>)}</datalist>
       <select
         aria-label="Research database"
         value={source}
@@ -768,18 +792,24 @@ function SearchForm({ q, setQ, search, source, setSource, busy }) {
     </form>
   );
 }
+function savedFilters(value) {
+  try { return value ? normalizeResearchFilters(JSON.parse(value)) : defaultResearchFilters; }
+  catch { return defaultResearchFilters; }
+}
 function ResearchPage() {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") || "";
   const provider = params.get("source") || "crossref";
+  const filterParam = params.get("filters") || "";
   const [q, setQ] = useState(query);
   const [source, setSource] = useState(provider);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [view, setView] = useState(params.get("view") || "papers");
-  const [sort, setSort] = useState("relevance");
-  const [year, setYear] = useState("all");
+  const [filters, setFilters] = useState(() => savedFilters(filterParam));
+  const [exportFormat, setExportFormat] = useState("CSV");
+  const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState([]);
   const [compare, setCompare] = useState(false);
   const [paper, setPaper] = useState(null);
@@ -797,6 +827,7 @@ function ResearchPage() {
     setBusy(true);
     setError("");
     setResult(null);
+    setFilters(savedFilters(filterParam));
     setSelected([]);
     api(
       provider === "deep"
@@ -809,8 +840,11 @@ function ResearchPage() {
       },
     )
       .then((data) => {
+        if (controller.signal.aborted) return;
         setResult({ ...data, papers: data.papers || data.results || [] });
-        refreshHistory();
+        if (["deep","pubmed"].includes(provider)) {
+          api("/api/records/searches/"+crypto.randomUUID(),{method:"PUT",body:JSON.stringify({query,source:provider,created_at:new Date().toISOString()})}).then(refreshHistory).catch(()=>{});
+        } else refreshHistory();
       })
       .catch((e) => {
         if (e.name !== "AbortError") setError(e.message);
@@ -819,24 +853,34 @@ function ResearchPage() {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [query, provider, retry]);
+  }, [query, provider, retry, filterParam]);
   const search = () => {
     if (!q.trim()) return;
     if (q.trim() === query && source === provider) setRetry((v) => v + 1);
     else setParams({ q: q.trim(), source });
   };
-  const papers = (result?.papers || [])
-    .filter((p) => year === "all" || p.year >= Number(year))
-    .sort((a, b) =>
-      sort === "citations"
-        ? (b.citations || 0) - (a.citations || 0)
-        : sort === "newest"
-          ? (b.year || 0) - (a.year || 0)
-          : 0,
-    );
+  const papers = filterResearchPapers(result?.papers || [], filters);
+  const changeFilters = (next) => {
+    setFilters(next);
+    const visibleIds = new Set(filterResearchPapers(result?.papers || [], next).map((item) => item.id));
+    const remaining = selected.filter((id) => visibleIds.has(id));
+    setSelected(remaining);
+    if(remaining.length < 2) setCompare(false);
+  };
   const exportPapers = () => {
-    download("zntx-research.csv", csv(papers), "text/csv");
-    notify("Research table exported.");
+    const values = selected.length ? papers.filter((p) => selected.includes(p.id)) : papers;
+    if (exportFormat === "CSV") download("zntx-research.csv", csv(values), "text/csv");
+    else if (exportFormat === "HTML") download("zntx-bibliography.html", bibliographyHtml(values), "text/html");
+    else download(`zntx-research.${exportFormat === "RIS" ? "ris" : "bib"}`, values.map((p) => citation(p, exportFormat)).join("\n\n"));
+    notify(`${values.length} ${selected.length ? "selected " : ""}sources exported.`);
+  };
+  const saveSearch = async () => {
+    setSaving(true);
+    try {
+      const record = {id:crypto.randomUUID(),type:"literature-search",title:query,query,source:provider,filters,result:{...result,papers},createdAt:new Date().toISOString()};
+      await api("/api/records/notes/"+record.id,{method:"PUT",body:JSON.stringify(record)});
+      notify("Search, filters, and loaded evidence saved to My Library.");
+    } catch(e) {notify(e.message,true);} finally {setSaving(false);}
   };
   return (
     <section className={`research-page page ${!query ? "search-landing" : ""}`}>
@@ -850,9 +894,9 @@ function ResearchPage() {
           )}
         </div>
         {query && result && (
-          <Button icon={Download} onClick={exportPapers}>
-            Export
-          </Button>
+          <div className="research-header-actions"><Button icon={saving ? LoaderCircle : Bookmark} disabled={saving} onClick={saveSearch}>Save search</Button>
+          <select aria-label="Export research format" value={exportFormat} onChange={(e) => setExportFormat(e.target.value)}><option>CSV</option><option>RIS</option><option>BibTeX</option><option value="HTML">Linked bibliography</option></select>
+          <Button icon={Download} onClick={exportPapers} disabled={!papers.length}>Export{selected.length ? ` ${selected.length} selected` : ""}</Button></div>
         )}
       </div>
       <SearchForm
@@ -960,28 +1004,9 @@ function ResearchPage() {
                 </button>
               ))}
             </div>
-            <div className="filters">
-              <select
-                aria-label="Publication year"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              >
-                <option value="all">All years</option>
-                <option value="2025">2025 onwards</option>
-                <option value="2020">2020 onwards</option>
-                <option value="2015">2015 onwards</option>
-              </select>
-              <select
-                aria-label="Sort papers"
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="relevance">Most relevant</option>
-                <option value="newest">Newest first</option>
-                <option value="citations">Most cited</option>
-              </select>
-            </div>
           </div>
+          <SearchProcess query={query} source={result?.source || provider} loading={busy} loadedCount={result?.papers?.length || 0}/>
+          {result && <SearchRefinements papers={result.papers || []} value={filters} onChange={changeFilters}/>}
           {busy && (
             <div className="loading-results" role="status">
               <div>
@@ -1015,7 +1040,7 @@ function ResearchPage() {
             <>
               <div className="result-meta">
                 <span>
-                  {papers.length} papers loaded <span className="dot">·</span>{" "}
+                  {papers.length} of {result.papers.length} loaded papers shown <span className="dot">·</span>{" "}
                   {Number(result.total || 0).toLocaleString()} {result.coverage ? "unique returned records" : "database matches"}
                 </span>
                 <span>
@@ -1044,7 +1069,7 @@ function ResearchPage() {
               )}
               {!papers.length ? (
                 <Empty icon={Search} title="No papers match these filters">
-                  Try another topic or expand the publication year.
+                  Clear filters, widen the year range, or try another topic.
                 </Empty>
               ) : view === "table" ? (
                 <PaperTable papers={papers} onOpen={setPaper} />
@@ -1171,40 +1196,7 @@ function PaperCard({ paper: p, index, onOpen, selected, onSelect }) {
   );
 }
 function PaperTable({ papers, onOpen }) {
-  return (
-    <div className="table-wrap">
-      <table className="paper-table">
-        <thead>
-          <tr>
-            <th>Paper</th>
-            <th>Year</th>
-            <th>Citations</th>
-            <th>Abstract / source evidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          {papers.map((p) => (
-            <tr key={p.id}>
-              <td>
-                <button onClick={() => onOpen(p)}>{p.title}</button>
-                <small>{p.authors.slice(0, 2).join(", ")}</small>
-                <a href={p.url} target="_blank" rel="noreferrer">
-                  {p.doi || "View source"} <ExternalLink size={11} />
-                </a>
-              </td>
-              <td>{p.year || "—"}</td>
-              <td>{p.citations}</td>
-              <td>
-                {p.abstract
-                  ? excerpt(p.abstract, 500)
-                  : "No abstract supplied by this provider. Read the original source to assess its findings."}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <ResearchTable papers={papers} onOpen={onOpen} />;
 }
 function Overview({ papers, query, onOpen }) {
   const withAbstract = papers.filter((p) => p.abstract);
@@ -1442,317 +1434,6 @@ function PaperDetail({ paper: p, onClose }) {
         </div>
       </div>
     </Modal>
-  );
-}
-const agentData = [
-  [
-    "Literature Review Assistant",
-    "Find relevant studies and organize a first reading list around your research question.",
-    "Literature Review",
-    "All domains",
-    FileSearch,
-    "search",
-    "What are the recent advances in renewable energy storage?",
-  ],
-  [
-    "Research Gap Explorer",
-    "Explore the literature and build questions for your next research project.",
-    "Deep Search",
-    "All domains",
-    Search,
-    "concepts",
-    "Sustainable urban development",
-  ],
-  [
-    "Biomedical Evidence Finder",
-    "Search life science publications and inspect source abstracts.",
-    "Deep Search",
-    "Biomedical",
-    FlaskConical,
-    "biomedical",
-    "CRISPR gene editing delivery methods",
-  ],
-  [
-    "Paper Comparison Matrix",
-    "Bring publication details and abstracts together in an exportable table.",
-    "Extract + Analyse",
-    "All domains",
-    Table2,
-    "table",
-    "Machine learning in healthcare",
-  ],
-  [
-    "Academic Draft Builder",
-    "Turn your topic and research sources into an editable working draft.",
-    "Create + Write",
-    "All domains",
-    PenLine,
-    "writer",
-    "Artificial intelligence in higher education",
-  ],
-  [
-    "PDF Reading Companion",
-    "Locate relevant passages in your documents with page references.",
-    "Extract + Analyse",
-    "All domains",
-    MessageSquare,
-    "pdf",
-    "",
-  ],
-  [
-    "Climate Research Explorer",
-    "Discover research on biodiversity, ecosystems, and a changing climate.",
-    "Deep Search",
-    "Environmental Science",
-    Leaf,
-    "search",
-    "Climate change and biodiversity",
-  ],
-  [
-    "Computer Science Scout",
-    "Find publications about algorithms, language models, and computing.",
-    "Deep Search",
-    "Computer Science + AI",
-    Brain,
-    "search",
-    "Large language models reasoning",
-  ],
-  [
-    "Citation Organizer",
-    "Build a bibliography from your papers in APA, MLA, IEEE, or BibTeX.",
-    "Create + Write",
-    "All domains",
-    Quote,
-    "citations",
-    "",
-  ],
-  [
-    "Research Presentation Builder",
-    "Create an editable slide outline for your next research presentation.",
-    "Create + Write",
-    "All domains",
-    Presentation,
-    "slides",
-    "My research project",
-  ],
-  [
-    "Physics Paper Finder",
-    "Explore the published literature in physics and materials science.",
-    "Deep Search",
-    "Physics",
-    Atom,
-    "search",
-    "Quantum computing error correction",
-  ],
-  [
-    "Study Data Extractor",
-    "Extract document metadata, page text, and relevant evidence from a PDF.",
-    "Extract + Analyse",
-    "All domains",
-    Zap,
-    "extract",
-    "",
-  ],
-];
-function Gallery() {
-  const { navigate } = useApp();
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState("Featured");
-  const [agent, setAgent] = useState(null);
-  const [task, setTask] = useState("");
-  const [preview, setPreview] = useState(false);
-  const categories = [
-    "Featured",
-    "Extract + Analyse",
-    "Literature Review",
-    "Create + Write",
-    "Deep Search",
-  ];
-  const domains = [
-    "Physics",
-    "Computer Science + AI",
-    "Biomedical",
-    "Environmental Science",
-  ];
-  const agents = agentData.filter(
-    (a) =>
-      (category === "Featured" || a[2] === category || a[3] === category) &&
-      (a[0] + " " + a[1] + " " + a[3]).toLowerCase().includes(q.toLowerCase()),
-  );
-  const run = () => {
-    let type = agent[5];
-    let s = encodeURIComponent(task);
-    if (type === "pdf") navigate("/chat-pdf");
-    else if (type === "extract") navigate("/extract-data");
-    else if (type === "citations") navigate("/citation-generator");
-    else if (type === "writer") navigate("/ai-writer?topic=" + s);
-    else if (type === "slides") navigate("/presentation?topic=" + s);
-    else if (type === "concepts") navigate("/concepts?topic=" + s);
-    else
-      navigate(
-        "/search?q=" +
-          s +
-          (type === "table"
-            ? "&view=table"
-            : type === "biomedical"
-              ? "&source=europepmc"
-              : "&view=overview"),
-      );
-  };
-  return (
-    <div className="gallery-layout">
-      <aside className="gallery-filter">
-        <h2>Zntx Space Agent Gallery</h2>
-        {categories.map((c, i) => (
-          <button
-            className={category === c ? "active" : ""}
-            key={c}
-            onClick={() => setCategory(c)}
-          >
-            {React.createElement(
-              [Shapes, Table2, FileSearch, PenLine, Search][i],
-              { size: 17 },
-            )}
-            {c}
-          </button>
-        ))}
-        <span className="section-label">Browse by Domain</span>
-        {domains.map((d, i) => (
-          <button
-            key={d}
-            className={category === d ? "active" : ""}
-            onClick={() => setCategory(d)}
-          >
-            {React.createElement([Atom, Brain, FlaskConical, Leaf][i], {
-              size: 17,
-            })}
-            {d}
-          </button>
-        ))}
-        <div className="gallery-note">
-          <Sparkles size={17} />
-          <p>Small tools. Big possibilities.</p>
-          <small>Curated workflows for your research.</small>
-        </div>
-      </aside>
-      <section className="gallery-content">
-        <div className="field-with-icon">
-          <Search size={17} />
-          <input
-            aria-label="Search all agents"
-            placeholder="Search all Agents"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <div className="gallery-count">
-          Showing {agents.length} research workflows{" "}
-          <button
-            onClick={() => {
-              setQ("");
-              setCategory("Featured");
-            }}
-          >
-            Show All
-          </button>
-        </div>
-        <div className="agent-grid">
-          {agents.map((a) => {
-            const I = a[4];
-            return (
-              <article className="agent-card" key={a[0]}>
-                <div className="agent-body">
-                  <div className="agent-icon-stack">
-                    <span>
-                      <Files size={19} />
-                    </span>
-                    <span>
-                      <I size={20} />
-                    </span>
-                    <span>
-                      <FileText size={18} />
-                    </span>
-                  </div>
-                  <h3>{a[0]}</h3>
-                  <p>{a[1]}</p>
-                  <span className="tag">{a[2]}</span>
-                </div>
-                <div className="agent-actions">
-                  <button
-                    onClick={() => {
-                      setAgent(a);
-                      setTask(a[6]);
-                      setPreview(false);
-                    }}
-                  >
-                    <Zap size={14} />
-                    Run Task
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAgent(a);
-                      setTask(a[6]);
-                      setPreview(true);
-                    }}
-                  >
-                    <Files size={14} />
-                    View Output
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        {agents.length === 0 && (
-          <Empty icon={Search} title="No matching workflows">
-            Try another keyword or category.
-          </Empty>
-        )}
-      </section>
-      {agent && (
-        <Modal title={agent[0]} onClose={() => setAgent(null)}>
-          <div className="modal-body">
-            <p className="muted">{agent[1]}</p>
-            {preview ? (
-              <div className="sample-output">
-                <span className="tag">Example workflow</span>
-                <h3>{agent[6] || "Your research document"}</h3>
-                <ol>
-                  <li>Provide a question, topic, or document.</li>
-                  <li>Explore the matching sources and evidence.</li>
-                  <li>Review and export your work.</li>
-                </ol>
-                <p className="small muted">
-                  Outputs use public metadata, source excerpts, or editable
-                  templates, depending on the tool.
-                </p>
-              </div>
-            ) : (
-              <label className="field-label">
-                Your task
-                <textarea
-                  value={task}
-                  onChange={(e) => setTask(e.target.value)}
-                  placeholder="Describe your research task…"
-                  rows={4}
-                />
-              </label>
-            )}
-            <Button
-              primary
-              icon={ArrowRight}
-              onClick={run}
-              disabled={
-                !task.trim() &&
-                !["pdf", "extract", "citations"].includes(agent[5])
-              }
-            >
-              {preview ? "Open workflow" : "Run task"}
-            </Button>
-          </div>
-        </Modal>
-      )}
-    </div>
   );
 }
 function Writer() {

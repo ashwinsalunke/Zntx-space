@@ -1,6 +1,6 @@
 # Zntx Space
 
-An open research workspace for literature review and pharmaceutical evidence. A practical search workspace with locally bundled Inter typography, warm neutral surfaces, and black primary buttons. Independent source code under the MIT license.
+An open research workspace for literature review and pharmaceutical evidence. Bold locally bundled Inter typography, white and gray surfaces, black controls, and colored tool markers. Independent source code under the MIT license.
 
 ## Start
 
@@ -18,12 +18,15 @@ For a built server, run `npm run build` and `npm start`, then open port 5180. Se
 
 ## Research tools
 
-The home search offers 13 source and workflow shortcuts. Choose a source, enter a question, and submit. Recently saved sources link back to their originals.
+The home search offers 13 source shortcuts in a horizontal rail, with Show all to expand it. The tool selector opens Deep Research, a systematic screening project, an evidence report, or biomedical search. Recently saved sources link back to their originals.
 
 - **My Library:** collections for sources, notes, and saved research; searchable/filterable records; linked original sources; Zotero/Mendeley RIS imports with duplicate detection; HTML bibliography, BibTeX, Markdown, and JSON exports. Save passages from PDFs and generated research to the same library.
 - **Additional sources:** live arXiv preprints, Grants.gov opportunities, DataCite datasets, and exact Python package metadata from PyPI. Google Scholar, Google Search, and Google Patents open searches on their original services.
 - **Research Agent:** multi-source searches with source counts, DOI/title deduplication, transparent lexical ranking, persistent conversations, source tables, Markdown exports, and optional cited AI synthesis.
-- **Literature Search:** Crossref, Europe PMC, PubMed, and merged deep-search views; abstracts, date/citation filters, paper comparison, and CSV export.
+- **Literature Search:** Crossref, Europe PMC, PubMed, and merged search views. More Filters stages year ranges, publication types, journals, conferences, included/excluded phrases, verified open access, and citation ranges before Apply. Filters affect loaded records, not the full provider index. Save and reopen searches with their filters; export all visible or selected sources as CSV, RIS, BibTeX, or a linked bibliography.
+- **Evidence tables:** configurable metadata columns and named custom columns with extraction instructions. AI cells use one supplied abstract at a time, require an explicit Generate action, retain source links, and can be exported. Generation is bounded to eight rows per batch and two concurrent requests.
+- **Agent Gallery:** 38 original workflows with task search, category/domain filters, horizontal colored tool markers, Run Task inputs, and View Output process guides. Computational tools that are not connected are described as planning or discovery workflows.
+- **Research Watches:** saved PubMed, clinical-trial, and dataset queries; Run check establishes a baseline, then compares newly seen records and source metadata. Optional linked digest notes use workspace storage. Checks cover returned pages and run on demand; weekly is a recommendation, not an active background schedule.
 - **Pharma Research:** PubChem compounds and structures, exact-identity ChEMBL mechanisms, registered ClinicalTrials.gov studies, openFDA label sections and separately labelled FAERS counts, and PubMed abstracts.
 - **Research Projects:** review questions and protocols, library paper selection, inclusion/exclusion decisions, evidence notes, autosave, and screening CSV export.
 - **PDF workspace:** browser-side selectable text extraction, page-linked excerpts, original PDF view, configurable AI explanations and evidence-field extraction, text/CSV exports. Supports up to 20 MB and 100 pages per PDF.

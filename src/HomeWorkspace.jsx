@@ -1,20 +1,15 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight, ArrowRight, Search, FileText, PenLine, Network, Presentation,
-  Library, BookOpen, FlaskConical, GraduationCap, Atom, Code2,
-  BadgeDollarSign, Upload, Microscope, Globe, ScrollText, Database, Check,
+  Library, BookOpen, FlaskConical, Check, ChevronLeft, ChevronRight, Clock,
 } from "lucide-react";
 import { Composer, useApp } from "./App.jsx";
 import { sourceUrl } from "./lib.js";
 import { researchSources, researchSourcePath } from "./research-sources.js";
+import { researchModePath } from "./research-modes.js";
+import SourceIcon from "./SourceIcon.jsx";
 
-const icons = {
-  sparkles: Search, library: Library, books: BookOpen, flask: FlaskConical,
-  graduation: GraduationCap, atom: Atom, code: Code2, badge: BadgeDollarSign,
-  upload: Upload, microscope: Microscope, globe: Globe, patent: ScrollText,
-  database: Database,
-};
 const tasks = [
   [FileText, "Literature review", "review", "/chat"],
   [PenLine, "Write a draft", "draft", "/ai-writer"],
@@ -31,6 +26,9 @@ export default function HomeWorkspace() {
   const [value, setValue] = useState("");
   const [mode, setMode] = useState("search");
   const [source, setSource] = useState("deep");
+  const [researchMode, setResearchMode] = useState("deep");
+  const [allSources, setAllSources] = useState(false);
+  const sourceRail = useRef(null);
   const { navigate, library } = useApp();
   const active = researchSources.find((item) => item.id === source);
   const recent = [...library]
@@ -43,11 +41,12 @@ export default function HomeWorkspace() {
     else if (task === "diagram" || task === "slides")
       navigate((task === "diagram" ? "/diagrams" : "/presentation") + "?" + params);
     else if (task === "review") navigate(researchSourcePath("deep", value));
-    else navigate(researchSourcePath(source, value));
+    else navigate(source === "deep" ? researchModePath(researchMode, value) : researchSourcePath(source, value));
   }
   function choose(id) {
     setSource(id);
     setMode("search");
+    setResearchMode("deep");
     document.querySelector('textarea[aria-label="Research task input"]')?.focus();
   }
 
@@ -57,14 +56,16 @@ export default function HomeWorkspace() {
         <h1>Your research workspace</h1>
         <p className="studio-intro">Find papers, compare evidence, and keep track of your sources.</p>
         <Composer value={value} setValue={setValue} onSubmit={() => submit()} mode={mode}
-          setMode={setMode} placeholder={active.placeholder} />
-        <div className="home-source-heading"><span>USE</span><p>{active.description}</p></div>
-        <div className="source-shortcuts" aria-label="Research sources">
+          setMode={setMode} researchMode={researchMode} setResearchMode={(id) => {setResearchMode(id);setSource("deep");}} placeholder={active.placeholder} />
+        <div className="home-source-heading"><span>USE</span><p>{active.description}</p>
+          <div className="source-rail-controls"><button type="button" onClick={() => setAllSources(!allSources)} aria-expanded={allSources}>{allSources ? "Collapse" : "Show all"}</button>
+          {!allSources && <><button type="button" aria-label="Scroll sources left" onClick={() => sourceRail.current?.scrollBy({left:-300,behavior:"smooth"})}><ChevronLeft size={16}/></button><button type="button" aria-label="Scroll sources right" onClick={() => sourceRail.current?.scrollBy({left:300,behavior:"smooth"})}><ChevronRight size={16}/></button></>}</div>
+        </div>
+        <div className={`source-shortcuts ${allSources ? "show-all" : ""}`} aria-label="Research sources" ref={sourceRail} tabIndex={0}>
           {researchSources.map((item) => {
-            const Icon = icons[item.icon];
             return <button key={item.id} className={`source-shortcut ${source === item.id ? "selected" : ""}`}
               data-source={item.id} type="button" aria-pressed={source === item.id} onClick={() => choose(item.id)}>
-              <Icon size={15} aria-hidden="true" /><span>{item.label}</span>
+              <SourceIcon source={item.id} /><span>{item.label}</span>
               {source === item.id && <Check size={12} aria-hidden="true" />}
             </button>;
           })}
@@ -76,6 +77,7 @@ export default function HomeWorkspace() {
           </button>)}
         </div>
       </section>
+      <Link className="home-watch-link" to="/automations"><Clock size={17}/><span>Keep up with your research</span><span className="home-watch-description">Create a literature or clinical-trial watch</span><ArrowUpRight size={15}/></Link>
       <div className="home-workbench">
         <section className="home-saved" aria-label="Recently saved sources">
           <div className="home-section-title"><h2>Recently saved</h2><Link to="/library">View library <ArrowRight size={14} /></Link></div>
