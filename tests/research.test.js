@@ -55,10 +55,13 @@ test("Europe PMC abstract markup is treated as text", () => {
     pubYear: "2025",
     abstractText: "<h4>Results</h4><p>A &amp; B were studied.</p>",
     citedByCount: 12,
+    pmcid: "PMC12345",
   });
   assert.equal(p.abstract, "Results A & B were studied.");
   assert.equal(p.citations, 12);
   assert.equal(p.openAccess, false);
+  assert.equal(p.pmcid, "PMC12345");
+  assert.equal(p.pmid, "123");
 });
 test("bibliography exports preserve DOI and separate multiple authors", () => {
   const p = {

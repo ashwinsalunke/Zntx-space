@@ -1,9 +1,25 @@
 export async function api(url, options = {}) {
+  let token = localStorage.getItem("zntx-workspace-token");
+  if (!/^[a-f0-9]{64}$/.test(token || "")) {
+    token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (n) =>
+      n.toString(16).padStart(2, "0"),
+    ).join("");
+    localStorage.setItem("zntx-workspace-token", token);
+  }
   const response = await fetch(url, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Workspace-Token": token,
+      ...options.headers,
+    },
   });
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("The server returned an incomplete response. Please retry.");
+  }
   if (!response.ok)
     throw new Error(data.error || "Unable to complete this request.");
   return data;
@@ -33,10 +49,21 @@ export function citation(p, style = "APA") {
     return `${authors.join(", ")}. “${p.title}.” ${p.journal || ""}, ${year}. ${doi}`;
   if (style === "IEEE")
     return `${authors.join(", ")}, “${p.title},” ${p.journal || ""}, ${year}. doi: ${p.doi || "unavailable"}.`;
-  return `${formatted.slice(0, 20).join(", ")}${authors.length > 20 ? ", et al." : ""} (${year}). ${p.title}. ${p.journal || ""}${p.volume ? ", " + p.volume : ""}${p.issue ? "(" + p.issue + ")" : ""}${p.pages ? ", " + p.pages : ""}. ${doi}`;
+  const lead = formatted.length
+    ? `${formatted.slice(0, 20).join(", ")}${authors.length > 20 ? ", et al." : ""} (${year}). ${p.title}.`
+    : `${p.title}. (${year}).`;
+  return `${lead} ${p.journal || ""}${p.volume ? ", " + p.volume : ""}${p.issue ? "(" + p.issue + ")" : ""}${p.pages ? ", " + p.pages : ""}. ${doi}`;
 }
 export function csv(papers) {
-  const cell = (s) => '"' + String(s ?? "").replaceAll('"', '""') + '"';
+  const cell = (s) => {
+    const value = String(s ?? "");
+    return (
+      '"' +
+      (/^[=+@\-\t\r]/.test(value) ? "'" : "") +
+      value.replaceAll('"', '""') +
+      '"'
+    );
+  };
   return [
     ["Title", "Authors", "Year", "Journal", "DOI", "Citations", "Abstract"],
     ...papers.map((p) => [

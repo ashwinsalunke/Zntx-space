@@ -1,37 +1,102 @@
+import "./env.js";
 import express from "express";
-import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { crossrefPaper, europePaper } from "./research.js";
+import {
+  storageInfo,
+  workspaceToken,
+  listRecords,
+  putRecord,
+  removeRecord,
+} from "./storage.js";
+import biomedicalRouter from "./biomedical.js";
+import aiRouter from "./ai.js";
+import discoveryRouter from "./discovery.js";
+import exportRouter from "./exports.js";
+import integrationsRouter from "./integrations.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-mkdirSync(path.join(root, ".data"), { recursive: true });
-const db = new DatabaseSync(path.join(root, ".data", "zntx.db"));
-db.exec(
-  `PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS papers (id TEXT PRIMARY KEY, data TEXT NOT NULL, saved_at TEXT DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS searches (id INTEGER PRIMARY KEY, query TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS drafts (id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);`,
-);
 const app = express();
 app.disable("x-powered-by");
+if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
 app.use(express.json({ limit: "2mb" }));
+app.use((req, res, next) => {
+  res.set({
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), geolocation=()",
+  });
+  next();
+});
 app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store");
   const origin = req.get("origin");
-  if (origin && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))
+  const sameOrigin =
+    process.env.APP_ORIGIN || `${req.protocol}://${req.get("host")}`;
+  const localOrigin =
+    process.env.NODE_ENV !== "production" &&
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || "");
+  if (origin && origin !== sameOrigin && !localOrigin)
     return res
       .status(403)
-      .json({ error: "Local demo accepts requests from localhost only." });
+      .json({ error: "Requests must come from this application’s origin." });
   next();
 });
-const cache = new Map();
+// Bound anonymous public traffic. Keys/models are never exposed to clients.
+const rates = new Map();
+app.use("/api", (req, res, next) => {
+  const paid = req.path === "/ai/generate";
+  const key = (req.ip || "local") + (paid ? ":ai-generate" : ":research");
+  const max = paid ? 30 : 300;
+  const windowMs = paid ? 3600000 : 60000;
+  const now = Date.now();
+  let rate = rates.get(key);
+  if (!rate || now - rate.start > windowMs) {
+    rate = { start: now, count: 0 };
+    rates.set(key, rate);
+  }
+  if (++rate.count > max)
+    return res.status(429).json({
+      error: "Request limit reached. Please wait before trying again.",
+    });
+  if (rates.size > 10000)
+    for (const [k, v] of rates) if (now - v.start > 3600000) rates.delete(k);
+  next();
+});
 app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
-    storage: "Local SQLite",
-    mode: "demo",
-    providers: ["Crossref", "Europe PMC"],
+    storage: storageInfo.provider,
+    cloud: storageInfo.cloud,
+    mode: "research",
+    providers: [
+      "Crossref",
+      "Europe PMC",
+      "PubMed",
+      "PubChem",
+      "ChEMBL",
+      "ClinicalTrials.gov",
+      "openFDA",
+    ],
   }),
 );
-app.get("/api/papers", async (req, res) => {
+app.get("/api/config", (req, res) =>
+  res.json({
+    storage: storageInfo.provider,
+    cloud: storageInfo.cloud,
+    projectUrl: storageInfo.projectUrl,
+    workspaceMode: "private browser workspace",
+    version: "0.2.0",
+  }),
+);
+app.use("/api/biomedical", biomedicalRouter);
+app.use("/api/ai", aiRouter);
+app.use("/api/discovery", discoveryRouter);
+app.use("/api/export", exportRouter);
+app.use("/api/integrations", integrationsRouter);
+const cache = new Map();
+app.get("/api/papers", async (req, res, next) => {
   const q = String(req.query.q || "")
     .trim()
     .slice(0, 500);
@@ -40,92 +105,162 @@ app.get("/api/papers", async (req, res) => {
     return res
       .status(400)
       .json({ error: "Enter a research topic or question." });
-  const key = source + ":" + q;
-  if (cache.has(key) && Date.now() - cache.get(key).time < 300000)
-    return res.json(cache.get(key).data);
   try {
-    let url =
-      source === "europepmc"
-        ? `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=24&resultType=core`
-        : `https://api.crossref.org/works?query=${encodeURIComponent(q)}&filter=type:journal-article&rows=24`;
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(20000),
-      headers: {
-        "User-Agent": "ZntxSpaceDemo/0.1 (local research workspace)",
-        Accept: "application/json",
-      },
-    });
-    if (!response.ok)
-      throw new Error(
-        `Research provider returned ${response.status}. Please try again.`,
-      );
-    const json = await response.json();
-    const data = {
-      papers:
+    const token = workspaceToken(req);
+    const key = source + ":" + q;
+    let data;
+    if (cache.has(key) && Date.now() - cache.get(key).time < 300000)
+      data = cache.get(key).data;
+    else {
+      const url =
         source === "europepmc"
-          ? (json.resultList?.result || []).map(europePaper)
-          : (json.message?.items || []).map(crossrefPaper),
-      total:
-        source === "europepmc"
-          ? json.hitCount
-          : json.message?.["total-results"],
-      source: source === "europepmc" ? "Europe PMC" : "Crossref",
+          ? `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=40&resultType=core`
+          : `https://api.crossref.org/works?query=${encodeURIComponent(q)}&filter=type:journal-article&rows=40`;
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(20000),
+        headers: {
+          "User-Agent": "ZntxSpace/0.2 (open-source research workspace)",
+          Accept: "application/json",
+        },
+      });
+      if (!response.ok)
+        throw Object.assign(
+          new Error(
+            `Research provider returned ${response.status}. Please try again.`,
+          ),
+          { status: 502 },
+        );
+      const json = await response.json();
+      data = {
+        papers:
+          source === "europepmc"
+            ? (json.resultList?.result || []).map(europePaper)
+            : (json.message?.items || []).map(crossrefPaper),
+        total:
+          source === "europepmc"
+            ? json.hitCount
+            : json.message?.["total-results"],
+        source: source === "europepmc" ? "Europe PMC" : "Crossref",
+        query: q,
+        retrievedAt: new Date().toISOString(),
+      };
+      cache.set(key, { time: Date.now(), data });
+      if (cache.size > 100) cache.delete(cache.keys().next().value);
+    }
+    await putRecord(token, "searches", randomUUID(), {
       query: q,
-      retrievedAt: new Date().toISOString(),
-    };
-    db.prepare("INSERT INTO searches(query,source) VALUES(?,?)").run(q, source);
-    cache.set(key, { time: Date.now(), data });
-    if (cache.size > 100) cache.delete(cache.keys().next().value);
+      source,
+      created_at: new Date().toISOString(),
+    }).catch(() => {});
     res.json(data);
   } catch (e) {
-    res.status(502).json({
-      error:
-        e.name === "TimeoutError"
-          ? "The research database is taking longer than expected. Please try again."
-          : e.message,
-    });
+    if (e.name === "TimeoutError")
+      e = Object.assign(
+        new Error(
+          "The research database took too long to respond. Please retry.",
+        ),
+        { status: 504 },
+      );
+    next(e);
   }
 });
-app.get("/api/library", (req, res) =>
-  res.json(
-    db
-      .prepare("SELECT data,saved_at FROM papers ORDER BY saved_at DESC")
-      .all()
-      .map((p) => ({ ...JSON.parse(p.data), savedAt: p.saved_at })),
-  ),
-);
-app.post("/api/library", (req, res) => {
-  const p = req.body;
-  if (typeof p.id !== "string" || !p.title)
-    return res
-      .status(400)
-      .json({ error: "A paper ID and title are required." });
-  db.prepare("INSERT OR REPLACE INTO papers(id,data) VALUES(?,?)").run(
-    p.id,
-    JSON.stringify(p),
-  );
-  res.status(201).json({ ok: true });
+app.get("/api/library", async (req, res, next) => {
+  try {
+    res.json(
+      (await listRecords(workspaceToken(req), "papers")).map((p) => ({
+        ...p,
+        savedAt: p.createdAt,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
 });
-app.delete("/api/library/:id", (req, res) => {
-  db.prepare("DELETE FROM papers WHERE id=?").run(req.params.id);
-  res.json({ ok: true });
+app.post("/api/library", async (req, res, next) => {
+  try {
+    const p = req.body;
+    if (typeof p?.id !== "string" || typeof p?.title !== "string")
+      return res
+        .status(400)
+        .json({ error: "A paper ID and title are required." });
+    res
+      .status(201)
+      .json(await putRecord(workspaceToken(req), "papers", p.id, p));
+  } catch (e) {
+    next(e);
+  }
 });
-app.get("/api/history", (req, res) =>
-  res.json(
-    db.prepare("SELECT * FROM searches ORDER BY id DESC LIMIT 20").all(),
-  ),
-);
-app.get("/api/drafts", (req, res) =>
-  res.json(db.prepare("SELECT * FROM drafts ORDER BY updated_at DESC").all()),
-);
-app.put("/api/drafts/:id", (req, res) => {
-  const { title, content } = req.body;
-  if (typeof title !== "string" || typeof content !== "string")
-    return res.status(400).json({ error: "A title and content are required." });
-  db.prepare(
-    "INSERT INTO drafts(id,title,content) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,content=excluded.content,updated_at=CURRENT_TIMESTAMP",
-  ).run(req.params.id, title, content);
-  res.json({ ok: true });
+app.delete("/api/library/:id", async (req, res, next) => {
+  try {
+    res.json(await removeRecord(workspaceToken(req), "papers", req.params.id));
+  } catch (e) {
+    next(e);
+  }
+});
+app.get("/api/history", async (req, res, next) => {
+  try {
+    res.json((await listRecords(workspaceToken(req), "searches")).slice(0, 30));
+  } catch (e) {
+    next(e);
+  }
+});
+app.get("/api/drafts", async (req, res, next) => {
+  try {
+    res.json(
+      (await listRecords(workspaceToken(req), "drafts")).map((d) => ({
+        ...d,
+        updated_at: d.updatedAt,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+app.put("/api/drafts/:id", async (req, res, next) => {
+  try {
+    const d = req.body;
+    if (typeof d?.title !== "string" || typeof d?.content !== "string")
+      return res
+        .status(400)
+        .json({ error: "A title and content are required." });
+    res.json(await putRecord(workspaceToken(req), "drafts", req.params.id, d));
+  } catch (e) {
+    next(e);
+  }
+});
+app.get("/api/records/:collection", async (req, res, next) => {
+  try {
+    res.json(await listRecords(workspaceToken(req), req.params.collection));
+  } catch (e) {
+    next(e);
+  }
+});
+app.put("/api/records/:collection/:id", async (req, res, next) => {
+  try {
+    res.json(
+      await putRecord(
+        workspaceToken(req),
+        req.params.collection,
+        req.params.id,
+        req.body,
+      ),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+app.delete("/api/records/:collection/:id", async (req, res, next) => {
+  try {
+    res.json(
+      await removeRecord(
+        workspaceToken(req),
+        req.params.collection,
+        req.params.id,
+      ),
+    );
+  } catch (e) {
+    next(e);
+  }
 });
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(root, "dist")));
@@ -134,15 +269,20 @@ if (process.env.NODE_ENV === "production") {
   );
 }
 app.use((err, req, res, next) => {
-  console.error(err.message);
-  res.status(500).json({ error: "Something went wrong. Please try again." });
+  console.error("Request failed:", err.code || err.name);
+  res.status(err.status || 500).json({
+    error: err.status
+      ? err.message
+      : "Unable to complete this request. Please retry.",
+  });
 });
 const port = Number(process.env.PORT) || 5180;
+const host = process.env.HOST || "127.0.0.1";
 app
-  .listen(port, "127.0.0.1", () =>
-    console.log(`Zntx Space API: http://127.0.0.1:${port}`),
+  .listen(port, host, () =>
+    console.log(`Zntx Space: http://${host}:${port} · ${storageInfo.provider}`),
   )
-  .on("error", (error) => {
-    console.error(`Unable to start Zntx Space API: ${error.message}`);
+  .on("error", (e) => {
+    console.error(`Unable to start server: ${e.message}`);
     process.exit(1);
   });

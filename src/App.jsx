@@ -79,7 +79,13 @@ import {
 } from "lucide-react";
 import { api, download, citation, csv, excerpt, wordCount } from "./lib.js";
 import { relevantPassages } from "../server/research.js";
+import AiPanel from "./AiPanel.jsx";
+import { exportDocument, exportSlides } from "./export-client.js";
 const PdfWorkspace = lazy(() => import("./PdfWorkspace.jsx"));
+const PharmaHub = lazy(() => import("./PharmaHub.jsx"));
+const ResearchProjects = lazy(() => import("./ResearchProjects.jsx"));
+const Integrations = lazy(() => import("./Integrations.jsx"));
+const ResearchChat = lazy(() => import("./ResearchChat.jsx"));
 const Ctx = createContext();
 export const useApp = () => useContext(Ctx);
 const navigation = [
@@ -88,6 +94,9 @@ const navigation = [
   ["/templates", Files, "Templates"],
   ["/chat-pdf", MessageSquare, "Chat with PDF"],
   ["/search", FileSearch, "Literature Review"],
+  ["/pharma", FlaskConical, "Pharma Research"],
+  ["/projects", FolderOpen, "Research Projects"],
+  ["/chat", MessageSquare, "Research Agent"],
   ["/ai-writer", PenLine, "AI Writer"],
   ["/concepts", Shapes, "Find Topics"],
   ["/paraphraser", ScanText, "Paraphraser"],
@@ -95,6 +104,7 @@ const navigation = [
   ["/extract-data", Zap, "Extract Data"],
   ["/ai-detector", ScanText, "AI Detector"],
   ["/ai-humanizer", Sparkles, "AI Humanizer"],
+  ["/integrations", Settings2, "Integrations"],
 ];
 function Logo({ full = true }) {
   return (
@@ -173,6 +183,7 @@ export default function App() {
     () => window.matchMedia("(max-width: 759px)").matches,
   );
   const [library, setLibrary] = useState([]);
+  const [workspaceConfig, setWorkspaceConfig] = useState(null);
   const [history, setHistory] = useState([]);
   const [toast, setToast] = useState(null);
   const [help, setHelp] = useState(false);
@@ -208,6 +219,9 @@ export default function App() {
       .then(setHistory)
       .catch(() => {});
   useEffect(() => {
+    api("/api/config")
+      .then(setWorkspaceConfig)
+      .catch(() => {});
     api("/api/library")
       .then(setLibrary)
       .catch((e) => notify(e.message, true));
@@ -346,8 +360,8 @@ export default function App() {
             <button className="profile" onClick={() => setStatus(true)}>
               <span className="avatar">A</span>
               <span className="profile-copy">
-                <b>Ashwin’s workspace</b>
-                <small>Local demo · No login needed</small>
+                <b>Your research workspace</b>
+                <small>No login needed</small>
               </span>
               <MoreHorizontal size={17} />
             </button>
@@ -399,7 +413,7 @@ export default function App() {
                 className="btn primary workspace-badge"
                 onClick={() => setStatus(true)}
               >
-                Demo workspace
+                Research workspace
               </button>
             </div>
           </header>
@@ -417,6 +431,11 @@ export default function App() {
                 element={<HomePage key={location.state?.reset || "home"} />}
               />
               <Route path="/search" element={<ResearchPage />} />
+              <Route path="/pharma" element={<PharmaHub />} />
+              <Route path="/projects" element={<ResearchProjects />} />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/chat" element={<ResearchChat />} />
+              <Route path="/chat/:id" element={<ResearchChat />} />
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/agents" element={<Gallery />} />
               <Route path="/templates" element={<Templates />} />
@@ -504,9 +523,9 @@ export default function App() {
               <div className="notice">
                 <Info size={16} />
                 <span>
-                  This is a local demo inspired by SciSpace. Research answers
-                  are source excerpts; writing tools use templates and text
-                  rules. No language model is connected.
+                  Public research APIs, source excerpts, and optional AI
+                  synthesis. Configure your own AI provider in Integrations.
+                  Verify generated claims against the original papers.
                 </span>
               </div>
               <Button primary onClick={() => setHelp(false)}>
@@ -523,7 +542,7 @@ export default function App() {
             <div className="modal-body">
               <div className="status-row">
                 <span>Workspace</span>
-                <b>Zntx Space Demo</b>
+                <b>Zntx Space</b>
               </div>
               <div className="status-row">
                 <span>Access</span>
@@ -533,7 +552,10 @@ export default function App() {
               </div>
               <div className="status-row">
                 <span>Saved papers & drafts</span>
-                <b>Local SQLite on this Mac</b>
+                <b>
+                  {workspaceConfig?.storage || "Workspace storage"} · Browser
+                  workspace
+                </b>
               </div>
               <div className="status-row">
                 <span>Research sources</span>
@@ -544,8 +566,9 @@ export default function App() {
                 <b>In your browser</b>
               </div>
               <p className="muted small">
-                No subscription or paid API is required. This demo runs locally
-                and has no cloud deployment.
+                Public source searches are keyless. Optional AI uses your
+                configured provider and may incur charges. Export a workspace
+                backup before clearing browser storage.
               </p>
               <Button primary onClick={() => setStatus(false)}>
                 Back to research
@@ -754,7 +777,7 @@ function HomePage() {
       );
     else
       navigate(
-        "/search?q=" +
+        "/chat?q=" +
           encodeURIComponent(value) +
           (m === "review" ? "&view=overview" : "") +
           (model === "Research" ? "&source=europepmc" : ""),
@@ -833,7 +856,7 @@ function HomePage() {
           ))}
         </div>
         <p className="home-footnote">
-          Zntx Space · A local research demo, inspired by SciSpace
+          Zntx Space · Open research workspace, inspired by SciSpace
         </p>
       </section>
     </div>
@@ -865,6 +888,8 @@ function SearchForm({ q, setQ, search, source, setSource, busy }) {
       >
         <option value="crossref">All research</option>
         <option value="europepmc">Life sciences</option>
+        <option value="deep">Deep search · multiple sources</option>
+        <option value="pubmed">PubMed</option>
       </select>
       <Button primary disabled={!q.trim() || busy} aria-label="Search papers">
         {busy ? (
@@ -906,11 +931,18 @@ function ResearchPage() {
     setError("");
     setResult(null);
     setSelected([]);
-    api(`/api/papers?q=${encodeURIComponent(query)}&source=${provider}`, {
-      signal: controller.signal,
-    })
+    api(
+      provider === "deep"
+        ? `/api/discovery/search?q=${encodeURIComponent(query)}`
+        : provider === "pubmed"
+          ? `/api/biomedical/pubmed?q=${encodeURIComponent(query)}`
+          : `/api/papers?q=${encodeURIComponent(query)}&source=${provider}`,
+      {
+        signal: controller.signal,
+      },
+    )
       .then((data) => {
-        setResult(data);
+        setResult({ ...data, papers: data.papers || data.results || [] });
         refreshHistory();
       })
       .catch((e) => {
@@ -930,7 +962,7 @@ function ResearchPage() {
     .filter((p) => year === "all" || p.year >= Number(year))
     .sort((a, b) =>
       sort === "citations"
-        ? b.citations - a.citations
+        ? (b.citations || 0) - (a.citations || 0)
         : sort === "newest"
           ? (b.year || 0) - (a.year || 0)
           : 0,
@@ -1036,7 +1068,7 @@ function ResearchPage() {
               ))}
             </div>
             <p className="small muted">
-              Powered by public Crossref and Europe PMC APIs. Search results
+              Powered by public Crossref, Europe PMC, and PubMed APIs. Search results
               depend on provider coverage.
             </p>
           </div>
@@ -1089,7 +1121,7 @@ function ResearchPage() {
                 <LoaderCircle className="spin" size={18} />
                 <span>
                   Searching{" "}
-                  {provider === "europepmc" ? "Europe PMC" : "Crossref"} for
+                  {{ europepmc: "Europe PMC", crossref: "Crossref", pubmed: "PubMed", deep: "Crossref and Europe PMC" }[provider] || "the research sources"} for
                   your question…
                 </span>
               </div>
@@ -1117,12 +1149,17 @@ function ResearchPage() {
               <div className="result-meta">
                 <span>
                   {papers.length} papers loaded <span className="dot">·</span>{" "}
-                  {Number(result.total || 0).toLocaleString()} database matches
+                  {Number(result.total || 0).toLocaleString()} {result.coverage ? "unique returned records" : "database matches"}
                 </span>
                 <span>
                   <span className="live-dot" /> {result.source} · Live results
                 </span>
               </div>
+              {result.partial && (
+                <p className="notice" role="status">
+                  Partial search: {result.sources.filter((s) => s.status !== "ok").map((s) => s.name).join(", ")} could not be reached. Results include the available sources only.
+                </p>
+              )}
               {selected.length > 0 && (
                 <div className="selection-bar">
                   <span>{selected.length} papers selected</span>
@@ -1237,7 +1274,10 @@ function PaperCard({ paper: p, index, onOpen, selected, onSelect }) {
         <div className="paper-footer">
           <span>
             <Quote size={13} />
-            {p.citations.toLocaleString()} citations
+            {p.citations == null
+              ? "Unavailable"
+              : Number(p.citations).toLocaleString()}{" "}
+            citations
           </span>
           <button className="text-btn" onClick={onOpen}>
             <BookOpen size={14} /> Read abstract
@@ -1312,6 +1352,12 @@ function Overview({ papers, query, onOpen }) {
           <p>Source excerpts for “{query}”</p>
         </div>
       </div>
+      <AiPanel
+        task="synthesis"
+        prompt={`Synthesize the available evidence for this question: ${query}. Distinguish findings, study limitations, and missing evidence.`}
+        evidence={papers.filter((p) => p.abstract).slice(0, 16)}
+        label="Generate cited synthesis"
+      />
       <div className="notice">
         <Info size={16} />
         <span>
@@ -1375,6 +1421,8 @@ function Overview({ papers, query, onOpen }) {
 function PaperDetail({ paper: p, onClose }) {
   const { library, savePaper, notify } = useApp();
   const [style, setStyle] = useState("APA");
+  const [fullText, setFullText] = useState(null);
+  const [reading, setReading] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(citation(p, style));
@@ -1393,7 +1441,10 @@ function PaperDetail({ paper: p, onClose }) {
         <h2>{p.title}</h2>
         <p className="muted">{p.authors.join(", ")}</p>
         <p className="small muted">
-          {p.journal} · {p.citations} citations
+          {p.journal} ·{" "}
+          {p.citations == null
+            ? "Citation count unavailable"
+            : `${p.citations} citations`}
         </p>
         <div className="inline-actions">
           <Button icon={Bookmark} onClick={() => savePaper(p)}>
@@ -1409,12 +1460,82 @@ function PaperDetail({ paper: p, onClose }) {
               Read PDF <ExternalLink size={14} />
             </a>
           )}
+          {p.pmcid && (
+            <Button
+              disabled={reading}
+              icon={BookOpen}
+              onClick={async () => {
+                setReading(true);
+                try {
+                  setFullText(
+                    await api(
+                      "/api/discovery/fulltext?pmcid=" +
+                        encodeURIComponent(p.pmcid),
+                    ),
+                  );
+                } catch (e) {
+                  notify(e.message, true);
+                } finally {
+                  setReading(false);
+                }
+              }}
+            >
+              {reading ? "Loading text…" : "Read open full text"}
+            </Button>
+          )}
         </div>
         <h3>Abstract</h3>
         <p className="abstract-full">
           {p.abstract ||
             "This database record does not include an abstract. Please open the original source to read the paper."}
         </p>
+        {fullText && (
+          <section className="fulltext-reader">
+            <div className="section-heading">
+              <h3>Open-access source text</h3>
+              <Button
+                icon={Download}
+                onClick={() => download(fullText.pmcid + ".txt", fullText.text)}
+              >
+                Export text
+              </Button>
+            </div>
+            <p className="small muted">
+              {fullText.license?.text ||
+                "Check the original source for reuse terms."}{" "}
+              <a href={fullText.sourceUrl} target="_blank" rel="noreferrer">
+                Original article <ExternalLink size={11} />
+              </a>
+            </p>
+            {fullText.coverage?.notes?.map((note) => (
+              <p className="small muted" key={note}>{note}</p>
+            ))}
+            <div
+              style={{
+                maxHeight: 500,
+                overflow: "auto",
+                padding: 20,
+                border: "1px solid #e7e5e4",
+                borderRadius: 7,
+              }}
+            >
+              {fullText.sections.map((s) => (
+                <section key={s.id}>
+                  <h3>{s.title}</h3>
+                  <p
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      fontSize: 12,
+                      lineHeight: 1.9,
+                    }}
+                  >
+                    {s.text}
+                  </p>
+                </section>
+              ))}
+            </div>
+          </section>
+        )}
         <div className="citation-box">
           <div>
             <h3>Cite this paper</h3>
@@ -1491,7 +1612,7 @@ function LibraryPage() {
           <span>saved papers</span>
         </div>
         <span>
-          <span className="live-dot" /> Saved on this Mac
+          <span className="live-dot" /> Private browser workspace
         </span>
       </div>
       <div className="field-with-icon">
@@ -1971,7 +2092,9 @@ function Templates() {
 }
 function Writer() {
   const [params] = useSearchParams();
-  const { notify } = useApp();
+  const { notify, library } = useApp();
+  const [sources, setSources] = useState([]);
+  const [exportFormat, setExportFormat] = useState("docx");
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [title, setTitle] = useState(
     params.get("template") || "Untitled document",
@@ -1998,6 +2121,7 @@ function Writer() {
     setBusy(true);
     try {
       const r = await api("/api/papers?q=" + encodeURIComponent(topic));
+      setSources(r.papers.slice(0, 16));
       setTitle(topic);
       setContent(
         `# ${topic}\n\n## Working draft\nThis document is a research outline. Replace the prompts below with your own analysis after reading the sources.\n\n## Introduction\nDefine the scope of ${topic.toLowerCase()}. Explain the problem, context, and significance of your research question.\n\n## Research question\nWhat does the published evidence tell us about ${topic.toLowerCase()}, and which questions remain open?\n\n## Source notes\n${r.papers
@@ -2029,7 +2153,7 @@ function Writer() {
       });
       setSaved(true);
       setDrafts(await api("/api/drafts"));
-      notify("Draft saved on this Mac.");
+      notify("Draft saved to your workspace.");
     } catch (e) {
       notify(e.message, true);
     }
@@ -2076,9 +2200,24 @@ function Writer() {
           {busy ? "Finding sources…" : "Create working draft"}
         </Button>
         <p className="tool-note">
-          Template-based draft with public research sources. No AI model
-          connected.
+          Build source notes first, then use your configured AI provider to
+          draft from the evidence.
         </p>
+        <AiPanel
+          task="draft"
+          prompt={`Write an academic working draft about ${topic}. ${content ? "Existing draft context: " + content.slice(0, 4000) : ""}`}
+          evidence={(sources.length ? sources : library).slice(0, 16)}
+          label="Draft with AI"
+          onResult={(r) => {
+            setContent(
+              r.text +
+                "\n\n## References\n" +
+                r.citations.map((p) => p.title + " — " + p.url).join("\n"),
+            );
+            setTitle(topic || title);
+            setSaved(false);
+          }}
+        />
         <div className="section-label">Your documents</div>
         <button
           className="draft-link"
@@ -2123,21 +2262,42 @@ function Writer() {
           />
           <div>
             <span className="small muted save-state">
-              {saved ? "Saved locally" : "Unsaved changes"}
+              {saved ? "Saved to workspace" : "Unsaved changes"}
             </span>
             <Button icon={Save} onClick={save} disabled={!content.trim()}>
               Save draft
             </Button>
+            <select
+              aria-label="Document export format"
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value)}
+            >
+              <option value="docx">Word (.docx)</option>
+              <option value="tex">LaTeX (.tex)</option>
+              <option value="html">HTML / print PDF</option>
+              <option value="md">Markdown</option>
+            </select>
             <Button
               icon={Download}
               disabled={!content.trim()}
-              onClick={() =>
-                download(
-                  (title || "document") + ".md",
-                  content,
-                  "text/markdown",
-                )
-              }
+              onClick={async () => {
+                try {
+                  if (exportFormat === "md")
+                    download(
+                      (title || "document") + ".md",
+                      content,
+                      "text/markdown",
+                    );
+                  else
+                    await exportDocument({
+                      title: title || "Research document",
+                      content,
+                      format: exportFormat,
+                    });
+                } catch (e) {
+                  notify(e.message, true);
+                }
+              }}
             >
               Export
             </Button>
@@ -2569,7 +2729,7 @@ function TextTool({ kind }) {
               </button>
             ))}
           </div>
-          <span className="tag">Rule-based demo</span>
+          <span className="tag">Local text rules + optional AI</span>
         </div>
         <div className="text-panels">
           <div>
@@ -2659,6 +2819,14 @@ function TextTool({ kind }) {
           </Button>
         </div>
       </div>
+      {!detector && (
+        <AiPanel
+          task="paraphrase"
+          prompt={`Revise the following text in a ${tone.toLowerCase()} style, preserving meaning, technical terminology, and source citations. Do not invent claims.\n\n${text}`}
+          label={human ? "Revise with AI" : "Paraphrase with AI"}
+          onResult={(r) => setOutput(r.text)}
+        />
+      )}
       <button
         className="example-link"
         onClick={() => {
@@ -2675,6 +2843,7 @@ function TextTool({ kind }) {
 }
 function DiagramTool({ slides = false }) {
   const [params] = useSearchParams();
+  const { notify } = useApp();
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [done, setDone] = useState("");
   const [step, setStep] = useState(0);
@@ -2756,6 +2925,41 @@ function DiagramTool({ slides = false }) {
             </Button>
           </div>
           <span className="tag">Editable template</span>
+          {slides && (
+            <Button
+              icon={Download}
+              onClick={async () => {
+                try {
+                  await exportSlides({
+                    title: done,
+                    slides: deck.map((t, i) => ({
+                      title: t,
+                      content:
+                        edits[i] || `${done}\nAdd your ${t.toLowerCase()}.`,
+                    })),
+                  });
+                  notify("PowerPoint exported.");
+                } catch (e) {
+                  notify(e.message, true);
+                }
+              }}
+            >
+              Export PowerPoint
+            </Button>
+          )}
+          <AiPanel
+            task={slides ? "draft" : "diagram"}
+            prompt={
+              slides
+                ? `Create a six-slide research presentation outline about ${done}. Do not invent results or references.`
+                : `Create a concept map for researching ${done}, showing related concepts and workflow relationships. Mark unverified content.`
+            }
+            label={
+              slides
+                ? "Generate slide outline with AI"
+                : "Generate concept map with AI"
+            }
+          />
           {slides ? (
             <div className="slides-workspace">
               <div className="slide-thumbnails">

@@ -3,6 +3,9 @@ dist/
 .data/
 .env
 .env.local
+.env.*
+!.env.example
+supabase/.temp/
 .DS_Store
 artifacts/
 *.log

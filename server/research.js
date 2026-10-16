@@ -45,6 +45,8 @@ export function europePaper(p) {
     citations: Number(p.citedByCount) || 0,
     type: p.pubTypeList?.pubType?.[0] || "Journal article",
     source: "Europe PMC",
+    pmcid: /^PMC\d+$/.test(p.pmcid || "") ? p.pmcid : null,
+    pmid: p.pmid || (p.source === "MED" ? p.id : null),
     openAccess: p.isOpenAccess === "Y",
     pdf:
       p.isOpenAccess === "Y" && p.pmcid

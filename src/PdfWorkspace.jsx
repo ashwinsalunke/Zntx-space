@@ -21,6 +21,7 @@ import {
 import { Button, Empty, useApp } from "./App.jsx";
 import { download, wordCount } from "./lib.js";
 import { relevantPassages } from "../server/research.js";
+import AiPanel from "./AiPanel.jsx";
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 const samplePages = [
   {
@@ -48,6 +49,9 @@ export default function PdfWorkspace({ extract = false }) {
   const [view, setView] = useState("text");
   const [page, setPage] = useState(1);
   const [answering, setAnswering] = useState(false);
+  const [columns, setColumns] = useState(
+    "Study design, Population, Intervention, Outcomes, Limitations",
+  );
   const left = useRef();
   const read = async (file) => {
     if (!file) return;
@@ -364,6 +368,30 @@ export default function PdfWorkspace({ extract = false }) {
           </div>
           {extract ? (
             <div className="extract-panel">
+              <label className="field-label">
+                Evidence fields to extract
+                <textarea
+                  aria-label="Evidence extraction fields"
+                  rows={3}
+                  value={columns}
+                  onChange={(e) => setColumns(e.target.value)}
+                  maxLength={1500}
+                />
+              </label>
+              <AiPanel
+                task="explain"
+                prompt={`Extract these evidence fields as a Markdown table from the supplied document pages: ${columns}. Include page citations for every extracted value. Write 'Not reported in supplied pages' for missing values. Do not infer sample sizes, treatment effects, or study design absent in the source.`}
+                evidence={doc.pages
+                  .filter((p) => p.text)
+                  .slice(0, 12)
+                  .map((p) => ({
+                    id: "page-" + p.page,
+                    title: doc.name + " · Page " + p.page,
+                    url: "",
+                    abstract: p.text.slice(0, 5500),
+                  }))}
+                label="Extract evidence with AI"
+              />
               <div className="notice">
                 <Info size={15} />
                 <span>
@@ -403,6 +431,23 @@ export default function PdfWorkspace({ extract = false }) {
           ) : (
             <>
               <div className="chat-messages" aria-live="polite">
+                <AiPanel
+                  task="explain"
+                  prompt={
+                    question.trim() ||
+                    "Summarize the supplied document passages, explain the reported findings and limitations, and cite page references. Do not infer results absent from these passages."
+                  }
+                  evidence={doc.pages
+                    .filter((p) => p.text)
+                    .slice(0, 12)
+                    .map((p) => ({
+                      id: "page-" + p.page,
+                      title: doc.name + " · Page " + p.page,
+                      url: "",
+                      abstract: p.text.slice(0, 5500),
+                    }))}
+                  label="Explain with AI"
+                />
                 {!messages.length && (
                   <div className="chat-welcome">
                     <span className="soft-icon">
@@ -472,8 +517,8 @@ export default function PdfWorkspace({ extract = false }) {
                 </button>
               </form>
               <p className="chat-disclaimer">
-                Keyword-matched excerpts with page references. No AI model
-                connected.
+                Local search returns page excerpts. “Explain with AI” sends the
+                displayed page evidence to your configured provider.
               </p>
             </>
           )}

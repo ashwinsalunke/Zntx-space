@@ -1,0 +1,260 @@
+.integrations-page {
+  max-width: 1250px;
+}
+.integration-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.integration-card {
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  padding: 25px;
+  background: white;
+  min-width: 0;
+}
+.integration-icon {
+  width: 43px;
+  height: 43px;
+  background: #f4f3f0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #78716c;
+  margin-bottom: 20px;
+}
+.integration-card h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+.integration-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #567862;
+  background: #f1f6f1;
+  border: 1px solid #e0e9df;
+  border-radius: 5px;
+  padding: 5px 7px;
+  margin-bottom: 15px;
+}
+.integration-state.pending {
+  background: #f4f3f0;
+  border-color: #e7e5e4;
+  color: #78716c;
+}
+.integration-card p {
+  font-size: 12px;
+  color: #78716c;
+  line-height: 1.9;
+  margin-bottom: 18px;
+}
+.integration-card .integration-hint {
+  font-size: 10px;
+  margin-top: 15px;
+  color: #a8a29e;
+}
+.integration-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.integration-card .btn {
+  font-size: 11px;
+}
+.integration-card details {
+  margin: 20px 0 0;
+  border-top: 1px solid #eeeae6;
+  padding-top: 15px;
+  font-size: 11px;
+  color: #78716c;
+  line-height: 1.9;
+}
+.integration-card summary {
+  cursor: pointer;
+  color: #57534e;
+}
+.integration-card details .btn {
+  margin-top: 15px;
+}
+.integration-card details label {
+  display: block;
+  font-size: 10px;
+  margin-top: 20px;
+}
+.integration-card details input,
+.mcp-tool-form textarea {
+  display: block;
+  width: 100%;
+  border: 1px solid #dedbd8;
+  border-radius: 5px;
+  padding: 10px;
+  margin-top: 7px;
+  font-size: 11px;
+}
+.integration-env {
+  display: block;
+  background: #f7f6f3;
+  border: 1px solid #ece8e2;
+  border-radius: 7px;
+  padding: 13px;
+  margin-bottom: 18px;
+  font-size: 11px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.integration-env code {
+  font-size: 11px;
+}
+.integration-card pre,
+.mcp-tool-form pre {
+  background: #f7f6f3;
+  padding: 12px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.source-status-list {
+  margin-bottom: 22px;
+}
+.source-status-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eeecea;
+  font-size: 11px;
+  color: #57534e;
+}
+.source-status-list small {
+  font-size: 9px;
+  color: #8b8580;
+}
+.mcp-server-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #e7e5e4;
+  border-radius: 6px;
+  padding: 12px;
+  background: white;
+  width: 100%;
+  text-align: left;
+  margin: 10px 0;
+  color: #78716c;
+}
+.mcp-server-row > span {
+  flex: 1;
+  font-size: 11px;
+}
+.mcp-server-row small {
+  display: block;
+  font-size: 9px;
+  margin-top: 4px;
+  color: #a8a29e;
+}
+.mcp-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.mcp-tools > button {
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 6px;
+  padding: 14px;
+  text-align: left;
+}
+.mcp-tools > button.active {
+  border-color: #57534e;
+  background: #faf9f7;
+}
+.mcp-tools b {
+  display: block;
+  font-size: 11px;
+}
+.mcp-tools span {
+  display: block;
+  font-size: 10px;
+  color: #8b8580;
+  line-height: 1.8;
+  margin-top: 9px;
+}
+.mcp-tools small {
+  display: block;
+  font-size: 9px;
+  color: #a8a29e;
+  margin-top: 12px;
+}
+.mcp-tool-form {
+  margin-top: 25px;
+}
+.mcp-tool-form label {
+  font-size: 11px;
+  display: block;
+  margin: 20px 0;
+}
+.mcp-output {
+  max-height: 400px;
+  overflow: auto;
+}
+.zotero-paper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #e7e5e4;
+  padding: 18px 0;
+}
+.zotero-paper > span {
+  flex: 1;
+  min-width: 0;
+}
+.zotero-paper b {
+  font-size: 12px;
+  line-height: 1.7;
+  font-weight: 500;
+  display: block;
+}
+.zotero-paper small {
+  display: block;
+  font-size: 10px;
+  color: #a8a29e;
+  margin-top: 5px;
+}
+.zotero-paper .btn {
+  font-size: 10px;
+}
+.integration-error {
+  color: #a34625;
+  font-size: 12px;
+}
+@media (max-width: 1050px) {
+  .integration-grid {
+    gap: 17px;
+  }
+  .integration-card {
+    padding: 20px;
+  }
+}
+@media (max-width: 759px) {
+  .integration-grid {
+    grid-template-columns: 1fr;
+  }
+  .integration-card {
+    padding: 23px;
+  }
+  .mcp-tools {
+    grid-template-columns: 1fr;
+  }
+  .integrations-page .page-heading {
+    flex-wrap: wrap;
+  }
+  .integration-card p {
+    font-size: 12px;
+  }
+}
