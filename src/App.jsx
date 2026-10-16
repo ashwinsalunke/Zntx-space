@@ -76,6 +76,7 @@ import {
   FolderOpen,
   RotateCcw,
   CheckCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { api, download, citation, csv, excerpt, wordCount, sourceUrl, bibliographyHtml } from "./lib.js";
 import { relevantPassages } from "../server/research.js";
@@ -85,6 +86,7 @@ import { templateById, templateContent } from "./templates.js";
 import { researchModes } from "./research-modes.js";
 import SearchRefinements, { SearchProcess } from "./SearchRefinements.jsx";
 import ResearchTable from "./ResearchTable.jsx";
+import SourceVerification, { PaperVerification } from "./SourceVerification.jsx";
 import { defaultResearchFilters, filterResearchPapers, normalizeResearchFilters } from "./research-filters.js";
 const PdfWorkspace = lazy(() => import("./PdfWorkspace.jsx"));
 const PharmaHub = lazy(() => import("./PharmaHub.jsx"));
@@ -107,6 +109,7 @@ const navigation = [
   ["/chat-pdf", MessageSquare, "Chat with PDF"],
   ["/search", FileSearch, "Literature Review"],
   ["/pharma", FlaskConical, "Pharma Research"],
+  ["/verification", ShieldCheck, "Source Checks"],
   ["/projects", FolderOpen, "Research Projects"],
   ["/chat", MessageSquare, "Research Agent"],
   ["/ai-writer", PenLine, "AI Writer"],
@@ -451,6 +454,7 @@ export default function App() {
               />
               <Route path="/search" element={<ResearchPage />} />
               <Route path="/pharma" element={<PharmaHub />} />
+              <Route path="/verification" element={<SourceVerification />} />
               <Route path="/projects" element={<ResearchProjects />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/chat" element={<ResearchChat />} />
@@ -1343,6 +1347,7 @@ function PaperDetail({ paper: p, onClose }) {
             </Button>
           )}
         </div>
+        <PaperVerification paper={p} />
         <h3>Abstract</h3>
         <p className="abstract-full">
           {p.abstract ||

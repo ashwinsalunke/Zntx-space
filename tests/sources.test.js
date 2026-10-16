@@ -99,14 +99,17 @@ test("metadata links allow HTTP(S) only and external search query text remains e
   }
   assert.equal(externalSearchUrl("constructor", "query"), "");
 });
-test("source catalog describes external and unconfigured personal-library boundaries", async () => {
+test("source catalog identifies credential-required search and library connectors without claiming they are connected", async () => {
   assert.equal(sourceCatalog().length, 13);
-  assert.equal(sourceCatalog().find((s) => s.id === "mendeley").supported, false);
-  assert.equal(sourceCatalog().find((s) => s.id === "scholar").mode, "external");
+  assert.equal(sourceCatalog().find((s) => s.id === "mendeley").supported, true);
+  for (const id of ["mendeley","zotero","scholar","google","patents"]) {
+    const source=sourceCatalog().find(s=>s.id===id);
+    assert.equal(source.mode,"connector");assert.equal(source.requiresCredential,true);assert.ok(source.statusEndpoint);
+  }
   await withApi(() => { throw new Error("must not fetch"); }, async (api) => {
     const { status, data } = await api("/status");
     assert.equal(status, 200);
-    assert.equal(data.sources.find((s) => s.id === "zotero").statusEndpoint, "/api/integrations/status");
+    assert.equal(data.sources.find((s) => s.id === "zotero").statusEndpoint, "/api/library-sync/status");
   });
 });
 test("invalid and duplicate arguments cannot select a URL or reach upstream services", async () => {

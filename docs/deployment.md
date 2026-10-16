@@ -20,13 +20,17 @@ Run `npm run verify:cloud` against the running API to check create/read/update, 
 
 Set `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` in the server environment. Google-native mode uses `AI_PROVIDER=google`; compatible endpoints additionally use `AI_BASE_URL`. See [AI setup](ai-setup.md). The user chooses the provider and model; no key or model is preconfigured in source. AI sends supplied research text to that provider when requested, including automatic synthesis after a Deep Research query submitted from home. The interface uses the name ScrapeTx Ai.
 
-## MCP and Zotero
+## Personal library and search connections
+
+Connect SerpAPI, Zotero, and Mendeley from Integrations. Credentials are stored in the encrypted local connector vault and scoped to the browser workspace. Preserve `.data/connector-vault.db` and `.data/connector-vault.key` together in secure operator backups. Even a Supabase deployment needs a persistent `.data/` volume for these account connections. Configure `APP_ORIGIN` and register the exact Mendeley callback displayed by the app. [Setup details](connections-and-verification.md) explain provider credentials, consent, pull-only synchronization, and deployment limits.
+
+## MCP and legacy Zotero import
 
 Personal connectors are restricted to one owner workspace. Compute the SHA-256 hash of your private workspace key locally and set it as `INTEGRATION_OWNER_HASH` on the server. Other browser workspaces cannot call those connectors. Never share the raw workspace key publicly.
 
-For Zotero, set `ZOTERO_USER_ID` and a read-only `ZOTERO_API_KEY`. For remote MCP, set `MCP_SERVERS` to an array of `{id,name,url,tokenEnv}` entries and place bearer credentials in the named server environment variable. HTTPS Streamable HTTP servers are supported. Local HTTP requires `MCP_ALLOW_LOCAL=true`. Discovery lists declared tools; the UI permits explicit calls only for tools marked read-only. OAuth flows and write tools are not implemented.
+The legacy owner-only Zotero browse endpoint still accepts `ZOTERO_USER_ID` and a read-only `ZOTERO_API_KEY`; the current UI uses the scoped library-sync connection instead. For remote MCP, set `MCP_SERVERS` to an array of `{id,name,url,tokenEnv}` entries and place bearer credentials in the named server environment variable. HTTPS Streamable HTTP servers are supported. Local HTTP requires `MCP_ALLOW_LOCAL=true`. Discovery lists declared tools; the UI permits explicit calls only for tools marked read-only. MCP OAuth onboarding and write tools are not implemented.
 
-These personal connectors are owner-only. To offer per-user Zotero/MCP credentials to friends, a separate identity and credential-storage design is needed; do not put your personal keys into a shared connector endpoint without this ownership gate.
+MCP and the legacy Zotero endpoint are owner-only. Do not put personal credentials into a shared MCP configuration without this ownership gate. The newer search/library connections use separate encrypted credentials for each browser capability workspace; they still do not provide named-user recovery or enterprise identity.
 
 ## Container deployment
 

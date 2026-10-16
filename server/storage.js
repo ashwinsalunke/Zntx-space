@@ -129,6 +129,14 @@ export async function listRecords(token, collection) {
     updatedAt: r.updated_at,
   }));
 }
+export async function getRecord(token, collection, id) {
+  validate(collection, id);
+  const rows = storageInfo.cloud
+    ? await cloud(token, "GET", new URLSearchParams({ collection: `eq.${collection}`, id: `eq.${id}`, select: "id,data,created_at,updated_at", limit: "1" }))
+    : local().prepare("SELECT id,data,created_at,updated_at FROM workspace_records WHERE workspace_hash=? AND collection=? AND id=? LIMIT 1").all(hash(token), collection, id).map((row) => ({...row,data:JSON.parse(row.data)}));
+  const row = rows[0];
+  return row ? {...row.data,id:row.id,createdAt:row.data.createdAt || row.created_at,updatedAt:row.updated_at} : null;
+}
 export async function putRecord(token, collection, id, data) {
   validate(collection, id, data);
   const now = new Date().toISOString();

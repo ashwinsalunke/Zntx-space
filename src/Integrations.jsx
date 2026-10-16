@@ -20,8 +20,9 @@ import {
 import { api, download } from "./lib.js";
 import { useApp, Button, Modal } from "./App.jsx";
 import "./integrations.css";
+import ExternalConnections from "./ExternalConnections.jsx";
 export default function Integrations() {
-  const { notify, savePaper, library } = useApp();
+  const { notify } = useApp();
   const [config, setConfig] = useState(null);
   const [ai, setAi] = useState(null);
   const [status, setStatus] = useState(null);
@@ -32,7 +33,6 @@ export default function Integrations() {
   const [args, setArgs] = useState("{}");
   const [output, setOutput] = useState(null);
   const [restore, setRestore] = useState("");
-  const [zotero, setZotero] = useState(null);
   const load = async () => {
     setBusy(true);
     setError("");
@@ -68,6 +68,8 @@ export default function Integrations() {
         "chats",
         "notes",
         "searches",
+        "reviews",
+        "agents",
       ])
         data.collections[collection] = await api("/api/records/" + collection);
       download(
@@ -96,6 +98,8 @@ export default function Integrations() {
         "chats",
         "notes",
         "searches",
+        "reviews",
+        "agents",
       ])
         for (const item of data.collections[collection] || []) {
           if (typeof item.id !== "string")
@@ -140,6 +144,7 @@ export default function Integrations() {
           {error}
         </p>
       )}
+      <ExternalConnections />
       <div className="integration-grid">
         <article className="integration-card">
           <span className="integration-icon">
@@ -326,41 +331,10 @@ export default function Integrations() {
           </details>
         </article>
         <article className="integration-card">
-          <span className="integration-icon">
-            <Download size={23} />
-          </span>
-          <h2>Zotero</h2>
-          <span
-            className={`integration-state ${status?.zotero.configured ? "" : "pending"}`}
-          >
-            {status?.zotero.configured
-              ? "Configured"
-              : "Optional personal library connection"}
-          </span>
-          <p>
-            Import publication metadata from your Zotero library, then add
-            selected sources to Zntx Space.
-          </p>
-          <code className="integration-env">
-            ZOTERO_USER_ID=your-user-id
-            <br />
-            ZOTERO_API_KEY=your-read-only-key
-          </code>
-          <Button
-            disabled={!status?.zotero.configured || busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                setZotero(await api("/api/integrations/zotero"));
-              } catch (e) {
-                notify(e.message, true);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Browse Zotero library
-          </Button>
+          <span className="integration-icon"><CheckCircle2 size={23}/></span><h2>Publication & approval checks</h2>
+          <p>Compare DOI metadata, inspect Crossref and Retraction Watch updates, check PubMed notices and current MEDLINE indexing, and look up US FDA approval applications.</p>
+          <Link className="btn" to="/verification">Check a source <ArrowRight size={14}/></Link>
+          <p className="integration-hint">These services check source records. They do not certify scientific correctness or peer review.</p>
         </article>
         <article className="integration-card">
           <span className="integration-icon">
@@ -466,32 +440,6 @@ export default function Integrations() {
                 )}
               </div>
             )}
-          </div>
-        </Modal>
-      )}
-      {zotero && (
-        <Modal title="Zotero library" wide onClose={() => setZotero(null)}>
-          <div className="modal-body">
-            <p className="small muted">
-              First {zotero.limitedTo} records. Select papers to save in your
-              workspace.
-            </p>
-            {zotero.papers.map((p) => (
-              <div className="zotero-paper" key={p.id}>
-                <span>
-                  <b>{p.title}</b>
-                  <small>
-                    {p.authors.join(", ")} · {p.year || "n.d."}
-                  </small>
-                </span>
-                <Button
-                  disabled={library.some((s) => s.id === p.id)}
-                  onClick={() => savePaper(p)}
-                >
-                  {library.some((s) => s.id === p.id) ? "Saved" : "Save paper"}
-                </Button>
-              </div>
-            ))}
           </div>
         </Modal>
       )}

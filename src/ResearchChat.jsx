@@ -24,6 +24,7 @@ import { api, csv, download, excerpt, citation, sourceUrl } from "./lib.js";
 import { useApp, Button, Empty } from "./App.jsx";
 import AiPanel, { ResearchText } from "./AiPanel.jsx";
 import "./research-chat.css";
+import { EvidenceVerification } from "./SourceVerification.jsx";
 function reportPrompt(query, verified) {
   return `Answer this research question using only the supplied evidence: ${query}. Compare study approaches, findings, limitations and open questions. Cite claims and explicitly identify missing evidence.${verified ? " Structure the report as Research question, Evidence summary, Claim-to-source checks, Conflicting findings, Evidence gaps, and Limitations. Identify whether each claim is directly reported in a supplied abstract or is an interpretation. Do not claim a full-text, risk-of-bias, peer-review, or external citation audit was performed. Never infer missing effect sizes or results." : ""}`;
 }
@@ -206,7 +207,7 @@ export default function ResearchChat() {
           </div>
           {busy && <LoaderCircle className="spin" size={18} />}
         </div>
-        {verified && <div className="report-mode-note"><CheckCircle2 size={18}/><div><strong>Verified Report</strong><p>Checks supplied citation identifiers and source links. The report uses retrieved abstracts; scientific claims still need review against the original papers.</p></div></div>}
+        {verified && <div className="report-mode-note"><CheckCircle2 size={18}/><div><strong>Verified Report</strong><p>Generation checks citations against supplied evidence identifiers. Use Check report sources for external publication and indexing checks. The report uses retrieved abstracts; review scientific claims against the original papers.</p></div></div>}
         {loading && (
           <div className="empty" role="status">
             <LoaderCircle className="spin" /> Loading your research…
@@ -306,6 +307,7 @@ export default function ResearchChat() {
                 onResult={(r) => saveSynthesis(turn, r)}
               />
             )}
+            {(verified || turn.mode === "verified") && <EvidenceVerification papers={turn.result.papers}/>}
             {(verified || turn.mode === "verified") && <div className="report-source-checks"><span><CheckCircle2 size={15}/>{turn.result.papers.filter((p) => sourceUrl(p)).length} source links available</span><span>{turn.result.papers.filter((p) => p.abstract).length} abstracts available</span><span>Generated citations must match supplied IDs</span></div>}
             <div className="section-heading">
               <h3>References · {turn.result.papers.length}</h3>

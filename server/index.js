@@ -8,6 +8,7 @@ import {
   storageInfo,
   workspaceToken,
   listRecords,
+  getRecord,
   putRecord,
   removeRecord,
 } from "./storage.js";
@@ -17,6 +18,11 @@ import discoveryRouter from "./discovery.js";
 import exportRouter from "./exports.js";
 import integrationsRouter from "./integrations.js";
 import sourcesRouter from "./sources.js";
+import verificationRouter from "./verification.js";
+import { createConnectorVault } from "./connector-vault.js";
+import { createConnectionsRouter } from "./connections.js";
+import { createGoogleSearchRouter } from "./google-search.js";
+import { createLibrarySyncRouter } from "./library-sync.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = express();
 app.disable("x-powered-by");
@@ -97,6 +103,17 @@ app.use("/api/discovery", discoveryRouter);
 app.use("/api/export", exportRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/sources", sourcesRouter);
+app.use("/api/verification", verificationRouter);
+const connectorVault = createConnectorVault();
+app.use("/api/connections", createConnectionsRouter({ vault: connectorVault }));
+app.use("/api/google-search", createGoogleSearchRouter({ getCredential: (req) => connectorVault.get(workspaceToken(req), "serpapi")?.apiKey || null }));
+app.use("/api/library-sync", createLibrarySyncRouter({
+  getSecret: (token, provider) => connectorVault.get(token, provider),
+  setSecret: (token, provider, value) => connectorVault.set(token, provider, value),
+  deleteSecret: (token, provider) => connectorVault.remove(token, provider),
+  listRecords, getRecord, putRecord,
+  appOrigin: process.env.APP_ORIGIN || "http://127.0.0.1:5173",
+}));
 const cache = new Map();
 app.get("/api/papers", async (req, res, next) => {
   const q = String(req.query.q || "")

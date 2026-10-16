@@ -9,6 +9,7 @@ import { Button, Empty, Modal, useApp } from "./App.jsx";
 import { api, bibliographyHtml, citation, download, excerpt, sourceUrl } from "./lib.js";
 import { ResearchText } from "./AiPanel.jsx";
 import "./library-workspace.css";
+import { PaperVerification } from "./SourceVerification.jsx";
 
 const asArray = (value) => Array.isArray(value) ? value : value?.records || [];
 const itemKey = (item) => `${item.kind}:${item.id}`;
@@ -138,6 +139,9 @@ function ItemDetail({ item, onClose, onEdit, onOrganize }) {
         <Button icon={FolderPlus} onClick={onOrganize}>Collections</Button>
         <Button icon={ArrowDownToLine} onClick={() => download("research-note.md", noteMarkdown(item), "text/markdown")}>Export notes</Button>
       </div>
+      {paper && !["webpage","patent","compound","clinical-trial","drug-label","dataset","grant","software"].includes(item.type) && <PaperVerification paper={item}/>}
+      {paper && item.snippet && <section><h3>Search result snippet</h3><p className="lw-prewrap">{item.snippet}</p><p className="lw-helper">This is a search preview, not a full article abstract or verified finding.</p></section>}
+      {paper && item.librarySync && <p className="lw-helper">Synced from {item.source}{item.remoteRemoved ? ". This reference was marked removed in the source library; your local copy remains available." : ". Re-sync from Integrations to retrieve source changes."}</p>}
       {paper ? <section><h3>Abstract</h3><p className="lw-prewrap">{item.abstract || "No abstract or description was supplied. Open the original source for its full details."}</p><h3>Reference</h3><p>{citation(item)}</p>{!url && <p className="lw-helper">No verified DOI or source URL is stored for this item.</p>}</section> : <section><h3>{research ? "Saved synthesis" : "Your notes"}</h3><ResearchText text={item.content || item.ai?.text || (research ? "This search was saved without an AI synthesis. Its retrieved source records remain available below." : "No note text added yet.")} citations={citations} prefix={prefix} />{citations.length > 0 && <ol className="lw-cited-sources">{citations.map((source, index) => <li key={source.id || index} id={`${prefix}-source-${index}`}>{sourceUrl(source) ? <a href={sourceUrl(source)} target="_blank" rel="noopener noreferrer">{source.title} <ArrowUpRight size={13} /></a> : source.title}</li>)}</ol>}{!research && (item.sourceTitle || url) && <><h3>Source reference</h3><p>{citation(noteSource(item))}</p></>}</section>}
       {sources.length > 0 && <section><h3>{research ? "Retrieved sources" : "Linked evidence"} <span>{sources.length}</span></h3>{research && <p className="lw-helper">These records were retrieved for this search; assess their relevance and quality before citing them.</p>}<div className="lw-source-list">{sources.map((source, index) => <div key={source.id || index}><strong>{index + 1}. {source.title}</strong>{(source.year || source.journal) && <p>{source.year || "Year unavailable"}{source.journal ? ` · ${source.journal}` : ""}</p>}{sourceUrl(source) && <a href={sourceUrl(source)} target="_blank" rel="noopener noreferrer">Open original source <ArrowUpRight size={14} /></a>}</div>)}</div></section>}
     </div>

@@ -60,7 +60,7 @@ export function citation(p, style = "APA") {
   const url = sourceUrl(p) || "";
   const book = ["book", "monograph", "edited-book", "reference-book"].includes(p.type);
   const chapter = ["book-chapter", "reference-entry", "book-part"].includes(p.type);
-  const webRecord = ["compound", "clinical-trial", "drug-label", "dataset", "grant", "software"].includes(p.type);
+  const webRecord = ["compound", "clinical-trial", "drug-label", "dataset", "grant", "software", "webpage", "patent", "scholarly-result"].includes(p.type);
   if (style === "BibTeX") {
     const field = (value) => String(value || "").replace(/\\/g, "\\\\").replace(/[{}]/g, "\\$&").replace(/[\r\n]+/g, " ");
     const fields = { title: p.title, author: authors.join(" and "), year,
@@ -98,21 +98,24 @@ export function csv(papers) {
     const value = String(s ?? "");
     return (
       '"' +
-      (/^[=+@\-\t\r]/.test(value) ? "'" : "") +
+      (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(value) ? "'" : "") +
       value.replaceAll('"', '""') +
       '"'
     );
   };
   return [
-    ["Title", "Authors", "Year", "Journal", "DOI", "Citations", "Abstract"],
+    ["Title", "Authors", "Year", "Journal", "DOI", "Citations", "Abstract", "Search snippet", "Original source URL", "Source"],
     ...papers.map((p) => [
       p.title,
-      p.authors.join("; "),
+      (p.authors || []).join("; "),
       p.year,
       p.journal,
       p.doi,
       p.citations,
       p.abstract,
+      p.snippet || "",
+      sourceUrl(p) || "",
+      p.source || "",
     ]),
   ]
     .map((row) => row.map(cell).join(","))

@@ -89,3 +89,10 @@ test("CSV exports preserve commas, quotations, and multiline abstracts", () => {
   assert.ok(output.includes('"A, ""quoted"" study"'));
   assert.ok(output.includes('"Line one\nLine two"'));
 });
+
+test("search result exports keep snippets separate from abstracts and retain original source links", () => {
+  const output=csv([{title:"  =Untrusted title",type:"webpage",abstract:"",snippet:"A search preview",url:"https://example.org/original",source:"Google Search via SerpAPI"}]);
+  assert.ok(output.includes('"Abstract","Search snippet","Original source URL"'));
+  assert.ok(output.includes('"\'  =Untrusted title"'));
+  assert.ok(output.includes('"A search preview","https://example.org/original","Google Search via SerpAPI"'));
+});

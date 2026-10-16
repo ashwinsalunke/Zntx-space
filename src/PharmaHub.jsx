@@ -16,10 +16,11 @@ import {
   TestTubeDiagonal,
   X,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button, Empty, Modal, useApp } from "./App.jsx";
 import { api, download, excerpt } from "./lib.js";
 import "./pharma.css";
+import { PaperVerification } from "./SourceVerification.jsx";
 
 const tools = [
   {
@@ -159,6 +160,7 @@ function Details({ record: r, tab, onClose }) {
         </div>
         {tab === "drugs" && (
           <>
+            <Link className="btn" to={"/verification?"+new URLSearchParams({kind:"drug",q:recordTitle(r,tab)})} onClick={onClose}>Check FDA approval records <ShieldCheck size={15}/></Link>
             <dl className="pharma-properties">
               <Field
                 label="Molecular formula"
@@ -274,6 +276,7 @@ function Details({ record: r, tab, onClose }) {
         )}
         {tab === "pubmed" && (
           <>
+            <PaperVerification paper={r}/>
             <p className="pharma-detail-authors">{asText(r.authors)}</p>
             <dl className="pharma-properties">
               <Field label="Journal" value={r.journal} />
