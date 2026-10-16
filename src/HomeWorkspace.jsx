@@ -39,7 +39,8 @@ export default function HomeWorkspace() {
 
   function submit(task = mode) {
     const params = new URLSearchParams({ topic: value });
-    if (task === "draft") navigate("/ai-writer?" + params);
+    if (task === "workflow") navigate("/research-workflow?" + params);
+    else if (task === "draft") navigate("/ai-writer?" + params);
     else if (task === "diagram" || task === "slides")
       navigate((task === "diagram" ? "/diagrams" : "/presentation") + "?" + params);
     else if (task === "review") navigate(researchSourcePath("deep", value));
@@ -81,6 +82,7 @@ export default function HomeWorkspace() {
           })}
         </div>
         <div className="studio-task-actions" aria-label="Research tasks">
+          <button onClick={() => submit("workflow")}><FileText size={15} aria-hidden="true"/>Create paper & slides<ArrowUpRight size={13} aria-hidden="true"/></button>
           {tasks.map(([Icon, label, id, path]) => <button className={mode === id ? "active" : ""} key={id}
             onClick={() => value.trim() ? submit(id) : navigate(path)}>
             <Icon size={15} aria-hidden="true" />{label}<ArrowUpRight size={13} aria-hidden="true" />

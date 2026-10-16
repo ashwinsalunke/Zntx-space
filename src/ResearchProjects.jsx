@@ -322,7 +322,7 @@ function ScreeningCard({ id, paper, screening, onChange }) {
   );
 }
 export default function ResearchProjects() {
-  const { library = [], notify } = useApp();
+  const { library = [], notify, navigate } = useApp();
   const [params, setParams] = useSearchParams();
   const selectedId = params.get("project");
   const [projects, setProjects] = useState([]);
@@ -784,7 +784,7 @@ export default function ResearchProjects() {
                   <button
                     className="projects-project-card"
                     key={project.id}
-                    onClick={() => setParams({ project: project.id })}
+                    onClick={() => project.type === "research-workflow" ? navigate(`/research-workflow?id=${encodeURIComponent(project.id)}`) : setParams({ project: project.id })}
                   >
                     <span className="projects-card-top">
                       <span className="projects-folder">
@@ -802,12 +802,14 @@ export default function ResearchProjects() {
                       )}
                     </p>
                     <div className="projects-card-stats">
+                    {project.type === "research-workflow" ? <><span>{project.workflow?.sources?.filter((s) => s.selected).length || 0} sources</span><span>{project.workflow?.slides?.length || 0} slides · Guided research</span></> : <>
                       <span>
                         {stats.total} {stats.total === 1 ? "paper" : "papers"}
                       </span>
                       <span>{screened} screened</span>
+                    </>}
                     </div>
-                    <span
+                    {project.type !== "research-workflow" && <span
                       className="projects-progress"
                       role="progressbar"
                       aria-label={`Papers screened in ${project.title}`}
@@ -820,7 +822,7 @@ export default function ResearchProjects() {
                           width: `${stats.total ? (screened / stats.total) * 100 : 0}%`,
                         }}
                       />
-                    </span>
+                    </span>}
                     <span className="projects-card-date">
                       Updated{" "}
                       {new Date(

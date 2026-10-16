@@ -31,6 +31,39 @@ const input = {
   prompt: "Review the evidence and its limitations.",
   evidence,
 };
+
+test("workflow AI requests use structured output, require evidence, and reject malformed generated artifacts", async (t) => {
+  let captured;
+  const service = await serve(t, { env: googleEnv, fetchImpl: async (_url, options) => {
+    captured = JSON.parse(options.body);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"query":"cardiovascular research","title":"Evidence review","note":"Planning only."}' }] }, finishReason: "STOP" }] }), { status: 200 });
+  } });
+  const result = await service.post({ task: "workflow-plan", prompt: "Plan a literature search", evidence: [] });
+  assert.equal(result.status, 200);
+  assert.equal(captured.generationConfig.responseMimeType, "application/json");
+  assert.deepEqual(captured.generationConfig.responseJsonSchema.required, ["query", "title", "note"]);
+  assert.equal(JSON.parse((await result.json()).text).query, "cardiovascular research");
+  assert.equal((await service.post({ task: "workflow-paper", prompt: "Draft", evidence: [] })).status, 400);
+  const bad = await serve(t, { env, fetchImpl: async () => completion('{"title":"Incomplete"}') });
+  const rejected = await bad.post({ ...input, task: "workflow-paper" });
+  assert.equal(rejected.status, 502); assert.equal((await rejected.json()).code, "INVALID_AI_OUTPUT");
+});
+
+test("disconnecting a generation aborts upstream work and releases its concurrency slot", async (t) => {
+  let started, upstreamAborted;
+  const waiting = new Promise((resolve) => { started = resolve; });
+  const stopped = new Promise((resolve) => { upstreamAborted = resolve; });
+  let calls = 0;
+  const service = await serve(t, { env, maxConcurrent: 1, fetchImpl: async (_url, options) => {
+    if (++calls > 1) return completion("Evidence [[cite:10.1234/study]].");
+    started(); return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => { upstreamAborted(); reject(options.signal.reason); }, { once: true }));
+  } });
+  const controller = new AbortController();
+  const request = fetch((await service.get()).url.replace(/\/status$/, "/generate"), { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  await waiting; controller.abort(); await assert.rejects(request, /abort/i); await stopped;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await service.post()).status, 200);
+});
 const completion = (content, extra = {}) =>
   new Response(
     JSON.stringify({ choices: [{ message: { content }, ...extra }] }),

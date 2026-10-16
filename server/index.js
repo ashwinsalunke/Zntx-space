@@ -273,6 +273,13 @@ app.put("/api/records/:collection/:id", async (req, res, next) => {
     next(e);
   }
 });
+app.get("/api/records/:collection/:id", async (req, res, next) => {
+  try {
+    const record = await getRecord(workspaceToken(req), req.params.collection, req.params.id);
+    if (!record) return res.status(404).json({ error: "This record is not in your browser workspace." });
+    res.json(record);
+  } catch (e) { next(e); }
+});
 app.delete("/api/records/:collection/:id", async (req, res, next) => {
   try {
     res.json(

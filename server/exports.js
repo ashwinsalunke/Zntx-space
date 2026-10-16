@@ -1,6 +1,7 @@
 import express from "express";
 import {
   Document,
+  ExternalHyperlink,
   HeadingLevel,
   Packer,
   Paragraph,
@@ -257,17 +258,17 @@ function renderLatex(title, blocks) {
 async function renderDocx(title, blocks) {
   const runs = (text, extra = {}) =>
     inlineParts(text).flatMap((part) =>
-      part.text.split("\n").map(
-        (line, index) =>
-          new TextRun({
-            text: line,
-            bold: part.bold,
-            italics: part.italic,
-            font: part.code ? "Courier New" : undefined,
-            ...(index ? { break: 1 } : {}),
-            ...extra,
-          }),
-      ),
+      part.text.split("\n").flatMap((line, index) => {
+        const pieces = line.split(/(https?:\/\/[^\s<>]+)/g).filter(Boolean);
+        return pieces.flatMap((piece, pieceIndex) => {
+          const format = { bold: part.bold, italics: part.italic, font: part.code ? "Courier New" : undefined, ...(index && !pieceIndex ? { break: 1 } : {}), ...extra };
+          let candidate = piece.replace(/[.,;]*$/, "");
+          while (candidate.endsWith(")") && (candidate.match(/\)/g) || []).length > (candidate.match(/\(/g) || []).length) candidate = candidate.slice(0, -1);
+          let link;
+          try { const url = new URL(candidate); if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password) link = url.href; } catch { /* Keep ordinary text unchanged. */ }
+          return link ? [new ExternalHyperlink({ link, children: [new TextRun({ ...format, text: candidate, style: "Hyperlink" })] }), ...(piece.length > candidate.length ? [new TextRun({ text: piece.slice(candidate.length), ...extra })] : [])] : [new TextRun({ text: piece, ...format })];
+        });
+      }),
     );
   const children = [
     new Paragraph({ text: title, heading: HeadingLevel.TITLE }),
@@ -410,7 +411,7 @@ function wrapLines(text, width = 78) {
     });
 }
 
-async function renderSlides(title, slides) {
+async function renderSlides(title, slides, theme = "neutral") {
   const deck = new pptxgen();
   deck.layout = "LAYOUT_WIDE";
   deck.author = "scrapeTx";
@@ -433,13 +434,14 @@ async function renderSlides(title, slides) {
           "This content needs more than 160 slides. Shorten the presentation.",
         );
       const slide = deck.addSlide();
-      slide.background = { color: "FAFAF9" };
+      slide.background = { color: theme === "scrapetx" ? item.layout === "title" ? "EAF0E1" : "F1F0EC" : "FAFAF9" };
+      if (theme === "scrapetx") slide.addShape(deck.ShapeType.rect, { x: 0, y: 0, w: .12, h: 7.5, fill: { color: "718779" }, line: { color: "718779" } });
       slide.addText(i ? `${item.title} · continued ${i + 1}` : item.title, {
         x: 0.65,
-        y: 0.5,
+        y: item.layout === "title" ? 1.2 : 0.5,
         w: 12,
         h: 1.15,
-        fontSize: 28,
+        fontSize: item.layout === "title" ? 36 : 28,
         bold: true,
         color: "171717",
         margin: 0,
@@ -447,11 +449,11 @@ async function renderSlides(title, slides) {
         valign: "mid",
         fit: "shrink",
       });
-      slide.addText(chunks[i], {
+      const bodyOptions = {
         x: 0.7,
-        y: 1.95,
+        y: item.layout === "title" ? 2.8 : 1.95,
         w: 11.9,
-        h: 4.7,
+        h: item.layout === "title" ? 3.7 : 4.7,
         fontSize: 20,
         color: "292524",
         margin: 0,
@@ -459,7 +461,12 @@ async function renderSlides(title, slides) {
         fit: "shrink",
         paraSpaceAfterPt: 8,
         breakLine: false,
-      });
+      };
+      if (item.layout === "two-column") {
+        const rows = chunks[i].split("\n"), middle = Math.ceil(rows.length / 2);
+        slide.addText(rows.slice(0, middle).join("\n"), { ...bodyOptions, w: 5.6 });
+        slide.addText(rows.slice(middle).join("\n"), { ...bodyOptions, x: 7.0, w: 5.6 });
+      } else slide.addText(chunks[i], bodyOptions);
       slide.addText("SCRAPETX  /  RESEARCH", {
         x: 0.7,
         y: 7.03,
@@ -479,7 +486,7 @@ async function renderSlides(title, slides) {
         color: "57534E",
         margin: 0,
       });
-      slide.addNotes(`${title}\n\n${item.title}\n\n${item.content}`);
+      slide.addNotes(item.notes || `${title}\n\n${item.title}\n\n${item.content}`);
     }
   }
   return deck.write({ outputType: "nodebuffer", compression: true });
@@ -544,20 +551,28 @@ export function createExportRouter() {
         req.body.slides.length > 40
       )
         throw new ExportError("slides must contain between 1 and 40 slides.");
-      const slides = req.body.slides.map((slide, index) => ({
-        title: field(slide?.title, `slides[${index}].title`, 200),
-        content: field(slide?.content, `slides[${index}].content`, 6000, true),
-      }));
+      const theme = req.body.theme || "neutral";
+      if (!["neutral", "scrapetx"].includes(theme)) throw new ExportError("Choose a supported presentation theme.");
+      const slides = req.body.slides.map((slide, index) => {
+        const layout = slide?.layout || "content";
+        if (!["title", "content", "two-column"].includes(layout)) throw new ExportError("Choose a supported slide layout.");
+        return {
+          title: field(slide?.title, `slides[${index}].title`, 200),
+          content: field(slide?.content, `slides[${index}].content`, 6000, true),
+          notes: slide?.notes === undefined ? "" : field(slide.notes, `slides[${index}].notes`, 6000, true),
+          layout,
+        };
+      });
       if (
         slides.reduce(
-          (sum, slide) => sum + slide.title.length + slide.content.length,
+          (sum, slide) => sum + slide.title.length + slide.content.length + slide.notes.length,
           0,
         ) > 120000
       )
         throw new ExportError(
           "Total slide content must be at most 120,000 characters.",
         );
-      sendFile(res, await renderSlides(title, slides), title, "pptx");
+      sendFile(res, await renderSlides(title, slides, theme), title, "pptx");
     } catch (error) {
       next(error);
     }

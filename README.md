@@ -4,6 +4,8 @@ An open research workspace for literature review and pharmaceutical evidence. Th
 
 The [brand guide](docs/brand.md) documents the supplied identity, typography, interface components, and motion behavior.
 
+**Start Research** provides a simple **Topic → Sources → Create** workflow for source-linked papers and presentations. Choose a template, review collected literature, edit a rich document and slides, and download DOCX/PPTX files. It autosaves in Research Projects and recovers unsaved edits on the same browser. See the [workflow guide](docs/research-workflow.md).
+
 ## Start
 
 Requires Node 24 (or Node 22.13+).

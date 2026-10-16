@@ -5,6 +5,7 @@ import { Modal, Button, Empty } from "./App.jsx";
 import { download } from "./lib.js";
 import { templates, filterTemplates, templateContent, templatePath } from "./templates.js";
 import "./templates-workspace.css";
+const guidedTemplates = new Set(["literature-review", "pharma-literature-review", "research-proposal", "scoping-review"]);
 
 const kindIcon = (kind) => kind === "Thesis & Dissertation" ? GraduationCap : kind === "Book Series" || kind === "Book Chapter" ? Library : BookOpen;
 const facets = [
@@ -87,7 +88,7 @@ export default function TemplatesWorkspace() {
             <div className="tc-metadata"><span><Icon size={17} aria-hidden="true" />{item.kind}</span><span><Building2 size={16} aria-hidden="true" />{item.university || item.publisher}</span>{item.access === "Open Access" && <span><LockOpen size={16} aria-hidden="true" />Open Access</span>}</div>
             <p className="tc-description">{item.description}</p>
             <p className="tc-topics">{item.topics.join(" · ")}</p>
-            <div className="tc-result-actions"><Link className="tc-start" to={templatePath(item)}>Start writing <ArrowRight size={17} /></Link><button className="tc-preview-link" onClick={() => setPreview(item)}>Preview structure</button>{item.guidanceUrl && <a href={item.guidanceUrl} target="_blank" rel="noopener noreferrer">Official guidance <ArrowUpRight size={14} /></a>}</div>
+            <div className="tc-result-actions"><Link className="tc-start" to={templatePath(item)}>Start writing <ArrowRight size={17} /></Link><button className="tc-preview-link" onClick={() => setPreview(item)}>Preview structure</button>{guidedTemplates.has(item.id) && <Link className="tc-preview-link" to={`/research-workflow?template=${item.id}`}>Guided research <ArrowRight size={14}/></Link>}{item.guidanceUrl && <a href={item.guidanceUrl} target="_blank" rel="noopener noreferrer">Official guidance <ArrowUpRight size={14} /></a>}</div>
           </div>
           <button className="tc-preview-button" onClick={() => setPreview(item)} aria-label={`Preview ${item.title}`}><PaperPreview item={item} /></button>
         </article>;

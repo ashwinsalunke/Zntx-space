@@ -102,10 +102,12 @@ const SourceWorkspace = lazy(() => import("./SourceWorkspace.jsx"));
 const TemplatesWorkspace = lazy(() => import("./TemplatesWorkspace.jsx"));
 const AgentGallery = lazy(() => import("./AgentGallery.jsx"));
 const AutomationWorkspace = lazy(() => import("./AutomationWorkspace.jsx"));
+const ResearchWorkflow = lazy(() => import("./ResearchWorkflow.jsx"));
 const Ctx = createContext();
 export const useApp = () => useContext(Ctx);
 const navigation = [
   ["/", Home, "Home"],
+  ["/research-workflow", FileText, "Start Research"],
   ["/agents", Network, "Agent Gallery"],
   ["/automations", Clock, "Research Watches"],
   ["/templates", Files, "Templates"],
@@ -335,7 +337,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <details className="sidebar-utilities" open={["/ai-detector", "/ai-humanizer", "/integrations", "/library"].includes(location.pathname) || undefined}><summary><MoreHorizontal size={18} /><span>More tools</span><ChevronDown size={14}/></summary>
+          <details className="sidebar-utilities" open={["/extract-data", "/ai-detector", "/ai-humanizer", "/integrations", "/library"].includes(location.pathname) || undefined}><summary><MoreHorizontal size={18} /><span>More tools</span><ChevronDown size={14}/></summary>
             {navigation.slice(15).map(([path, Icon, label]) => <NavLink key={path} to={path} title={collapsed ? label : undefined} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.65}/><span>{label}</span></NavLink>)}
           <div className="sidebar-secondary">
             <NavLink to="/library" className="nav-item" title="My Library">
@@ -442,6 +444,7 @@ export default function App() {
               <Route path="/pharma" element={<PharmaHub />} />
               <Route path="/verification" element={<SourceVerification />} />
               <Route path="/projects" element={<ResearchProjects />} />
+              <Route path="/research-workflow" element={<ResearchWorkflow />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/chat" element={<ResearchChat />} />
               <Route path="/chat/:id" element={<ResearchChat />} />
