@@ -1,6 +1,6 @@
 # Zntx Space
 
-An open research workspace for literature review and pharmaceutical evidence. SciSpace-inspired layout, locally bundled Inter typography, warm backgrounds, and black primary buttons. Independent source code under the MIT license.
+An open research workspace for literature review and pharmaceutical evidence. A practical search workspace with locally bundled Inter typography, warm neutral surfaces, and black primary buttons. Independent source code under the MIT license.
 
 ## Start
 
@@ -18,6 +18,10 @@ For a built server, run `npm run build` and `npm start`, then open port 5180. Se
 
 ## Research tools
 
+The home search offers 13 source and workflow shortcuts. Choose a source, enter a question, and submit. Recently saved sources link back to their originals.
+
+- **My Library:** collections for sources, notes, and saved research; searchable/filterable records; linked original sources; Zotero/Mendeley RIS imports with duplicate detection; HTML bibliography, BibTeX, Markdown, and JSON exports. Save passages from PDFs and generated research to the same library.
+- **Additional sources:** live arXiv preprints, Grants.gov opportunities, DataCite datasets, and exact Python package metadata from PyPI. Google Scholar, Google Search, and Google Patents open searches on their original services.
 - **Research Agent:** multi-source searches with source counts, DOI/title deduplication, transparent lexical ranking, persistent conversations, source tables, Markdown exports, and optional cited AI synthesis.
 - **Literature Search:** Crossref, Europe PMC, PubMed, and merged deep-search views; abstracts, date/citation filters, paper comparison, and CSV export.
 - **Pharma Research:** PubChem compounds and structures, exact-identity ChEMBL mechanisms, registered ClinicalTrials.gov studies, openFDA label sections and separately labelled FAERS counts, and PubMed abstracts.
@@ -28,9 +32,9 @@ For a built server, run `npm run build` and `npm start`, then open port 5180. Se
 - **Diagrams and presentations:** editable research structures, optional AI concept maps, slide outlines, and real PowerPoint export.
 - **Text tools:** local phrase cleanup and readability statistics, plus optional model-based revision. The detector screen does not claim to determine AI authorship.
 
-## Models and integrations
+## ScrapeTx Ai and integrations
 
-Set `AI_BASE_URL`, `AI_API_KEY`, and `AI_MODEL` in the ignored `.env.local` file to connect an OpenAI-compatible model. No model credentials are supplied or committed. The UI shows configuration status and never substitutes invented AI results when a provider is missing. See [AI setup](docs/ai-setup.md).
+ScrapeTx Ai supports Google's native generation API and OpenAI-compatible endpoints. Set `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` in the ignored `.env.local` file; compatible endpoints also use `AI_BASE_URL`. Deployment identifiers and keys stay on the server, and the interface displays only ScrapeTx Ai. The assistant cites supplied evidence and rejects unknown citation identifiers. The repository contains no working AI credential. See [AI setup](docs/ai-setup.md).
 
 The Integrations page provides workspace backups, private workspace transfer, source status, optional Zotero import, and configurable Streamable HTTP MCP servers. Personal connectors require an owner workspace hash. Only explicitly requested read-only MCP calls are enabled; arbitrary write tools and OAuth onboarding are outside the current implementation.
 
@@ -57,4 +61,4 @@ Tests cover provider normalization, honest source failures, DOI deduplication, p
 
 Zntx Space is an independent application, not SciSpace source code or access to its proprietary services. It does not include the SciSpace private corpus, unrestricted Google Scholar scraping, commercial plagiarism or AI-detection engines, OCR, all citation styles, all languages, or a guaranteed systematic review. Public source coverage and licenses apply; paywalled full texts are not bypassed. AI model output requires source verification.
 
-The repository is prepared for self-hosting. Public web hosting and a live paid AI provider are not preconfigured.
+The repository is prepared for self-hosting. Public web hosting is not provisioned. Self-hosted forks need their own Supabase and AI settings; local development on this Mac has been verified with the supplied connection.

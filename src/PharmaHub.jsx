@@ -16,6 +16,7 @@ import {
   TestTubeDiagonal,
   X,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Button, Empty, Modal, useApp } from "./App.jsx";
 import { api, download, excerpt } from "./lib.js";
 import "./pharma.css";
@@ -139,6 +140,14 @@ function recordURL(r, tab) {
       ? `https://pubchem.ncbi.nlm.nih.gov/compound/${r.cid}`
       : null)
   );
+}
+function toLibraryRecord(record, tab) {
+  if (tab === "pubmed") return record;
+  return { ...record, id: `${tab}-${keyOf(record, 0)}`, title: recordTitle(record, tab),
+    authors: record.authors || [], year: record.year || null, url: recordURL(record, tab) || "",
+    abstract: record.summary || record.description || [record.indications, record.warnings].flat().filter(Boolean).join("\n").slice(0,12000),
+    type: {drugs:"compound",trials:"clinical-trial",safety:"drug-label"}[tab],
+    source: tools.find(t=>t.id===tab).source, citations: null, retrievedAt: new Date().toISOString() };
 }
 function Details({ record: r, tab, onClose }) {
   return (
@@ -390,14 +399,14 @@ function ResultCard({ record: r, tab, onOpen, saved, onSave }) {
             <ArrowRight size={14} aria-hidden="true" />
           </button>
           <SourceLink href={recordURL(r, tab)} />
-          {tab === "pubmed" && (
+          {(
             <button onClick={onSave} aria-pressed={saved}>
               {saved ? (
                 <Check size={14} aria-hidden="true" />
               ) : (
                 <Bookmark size={14} aria-hidden="true" />
               )}
-              {saved ? "Saved to library" : "Save paper"}
+              {saved ? "Saved to library" : "Save source"}
             </button>
           )}
         </div>
@@ -427,8 +436,9 @@ function exportCSV(rows) {
 
 export default function PharmaHub() {
   const { library = [], savePaper, notify } = useApp();
-  const [tab, setTab] = useState("drugs");
-  const [input, setInput] = useState("");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(tools.some(t => t.id === params.get("tool")) ? params.get("tool") : "drugs");
+  const [input, setInput] = useState(params.get("q") || "");
   const [sessions, setSessions] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -465,6 +475,13 @@ export default function PharmaHub() {
       document.removeEventListener("keydown", escape);
     };
   }, [exportsOpen]);
+  useEffect(() => {
+    const initialTab = tools.some(t => t.id === params.get("tool")) ? params.get("tool") : "drugs";
+    const initialQuery = params.get("q") || "";
+    setTab(initialTab);
+    setInput(initialQuery);
+    if (initialQuery) search(initialQuery, initialTab);
+  }, [params]);
   function changeTab(id) {
     request.current?.abort();
     setBusy(false);
@@ -475,7 +492,7 @@ export default function PharmaHub() {
     setInput(sessions[id]?.query || "");
     setTab(id);
   }
-  async function search(value = input) {
+  async function search(value = input, selectedTab = tab) {
     const query = value.trim();
     if (!query) {
       searchInput.current?.focus();
@@ -491,23 +508,23 @@ export default function PharmaHub() {
     setExportsOpen(false);
     try {
       const response = await api(
-        `/api/biomedical/${tab}?q=${encodeURIComponent(query)}`,
+        `/api/biomedical/${selectedTab}?q=${encodeURIComponent(query)}`,
         { signal: controller.signal },
       );
       if (!controller.signal.aborted)
         setSessions((previous) => ({
           ...previous,
-          [tab]: {
+          [selectedTab]: {
             ...response,
             query,
             results:
-              tab === "safety"
+              selectedTab === "safety"
                 ? response.labels || []
                 : response.results || response.papers || response.studies || [],
-            events: tab === "safety" ? response.results || [] : [],
+            events: selectedTab === "safety" ? response.results || [] : [],
             total:
-              tab === "safety" ? response.labels?.length || 0 : response.total,
-            totalReports: tab === "safety" ? response.total : null,
+              selectedTab === "safety" ? response.labels?.length || 0 : response.total,
+            totalReports: selectedTab === "safety" ? response.total : null,
             fetchedAt: response.retrievedAt || new Date().toISOString(),
           },
         }));
@@ -786,8 +803,8 @@ export default function PharmaHub() {
                     record={record}
                     tab={tab}
                     onOpen={() => setDetail(record)}
-                    saved={library.some((p) => p.id === record.id)}
-                    onSave={() => savePaper(record)}
+                    saved={library.some((p) => p.id === toLibraryRecord(record, tab).id)}
+                    onSave={() => savePaper(toLibraryRecord(record, tab))}
                   />
                 ))}
               </div>

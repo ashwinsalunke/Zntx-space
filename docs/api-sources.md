@@ -43,3 +43,19 @@ On 2026-10-16, all four router endpoints returned HTTP 200 against live upstream
 Bibliography lookup uses Crossref `query.bibliographic` across registered record types, including books and chapters. A supplied DOI uses the exact `/works/{doi}` endpoint. Exact title matches in returned records are shown first; related results keep their provider metadata. This is matching, not verification that a source supports a claim. See the [official Crossref API documentation](https://www.crossref.org/documentation/retrieve-metadata/rest-api/).
 
 Clickable references prefer a normalized DOI resolver URL, then the supplied HTTP(S) source URL, with PubMed/PMC identifier fallbacks. Missing identifiers remain unavailable. HTML bibliography downloads preserve clickable links; text, BibTeX, and RIS retain source URLs. Publisher records may still require a subscription for full text.
+
+
+## Home source catalog and additional public services
+
+`GET /api/sources/status` describes all 13 home options and distinguishes live public APIs, external searches, file tools, and personal library imports. `GET /api/sources/search?source=ID&q=QUERY` supports these additional services:
+
+| ID | Original API | Returned records |
+| --- | --- | --- |
+| `arxiv` | [arXiv Atom API](https://info.arxiv.org/help/api/index.html) | Preprint titles, authors, publication dates, supplied abstracts, identifiers, and original arXiv links. Requests are serialized at least three seconds apart per process. Preprints are labelled. |
+| `grants` | [Grants.gov search2](https://www.grants.gov/api/common/search2) | Funding opportunity titles, agencies, status, dates, supplied descriptions, and original opportunity links. |
+| `datasets` | [DataCite REST API](https://support.datacite.org/docs/rest-api) | Dataset records with DOI, title, creators, publication year, supplied descriptions, and source links. A DOI does not establish open-access rights. |
+| `python` | [PyPI JSON API](https://docs.pypi.org/api/json/) | Exact package metadata, publisher summary, version, official links, and licence information. No package is installed or executed. |
+
+Responses retain source, retrieval time, result counts, coverage warnings, and stable identifiers. Empty results and provider failures remain explicit. These services use fixed upstream origins, bounded responses, request timeouts, and a bounded cache; tests inject provider responses, and all four services were exercised against live sources on 16 October 2026.
+
+Google Scholar, Google Search, and Google Patents are external search links. They do not pretend to have retrieved or analysed results inside the app. Zotero/Mendeley shortcuts offer actual RIS imports to My Library; personal Zotero API access still requires its read-only account settings. Mendeley OAuth synchronization is not implemented. Uploaded Files routes to the browser PDF workspace; ClinicalTrials.gov routes directly to the registered-studies tool.

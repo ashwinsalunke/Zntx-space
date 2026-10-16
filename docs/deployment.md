@@ -18,7 +18,7 @@ Run `npm run verify:cloud` against the running API to check create/read/update, 
 
 ## AI
 
-Set `AI_BASE_URL`, `AI_API_KEY`, and `AI_MODEL` in the server environment. See [AI setup](ai-setup.md). The user chooses the provider and model; no key or model is preconfigured in source. Optional AI sends the supplied research text to that provider only when requested.
+Set `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` in the server environment. Google-native mode uses `AI_PROVIDER=google`; compatible endpoints additionally use `AI_BASE_URL`. See [AI setup](ai-setup.md). The user chooses the provider and model; no key or model is preconfigured in source. AI sends supplied research text to that provider when requested, including automatic synthesis after a Deep Research query submitted from home. The interface uses the name ScrapeTx Ai.
 
 ## MCP and Zotero
 

@@ -60,16 +60,17 @@ export function citation(p, style = "APA") {
   const url = sourceUrl(p) || "";
   const book = ["book", "monograph", "edited-book", "reference-book"].includes(p.type);
   const chapter = ["book-chapter", "reference-entry", "book-part"].includes(p.type);
+  const webRecord = ["compound", "clinical-trial", "drug-label", "dataset", "grant", "software"].includes(p.type);
   if (style === "BibTeX") {
     const field = (value) => String(value || "").replace(/\\/g, "\\\\").replace(/[{}]/g, "\\$&").replace(/[\r\n]+/g, " ");
     const fields = { title: p.title, author: authors.join(" and "), year,
       ...(book ? { publisher: p.publisher || p.journal, isbn: p.isbn?.join("; ") }
         : chapter ? { booktitle: p.journal, publisher: p.publisher } : { journal: p.journal }),
       doi, url };
-    return `@${book ? "book" : chapter ? "incollection" : "article"}{${(authors[0] || "paper").replace(/[^a-z]/gi, "")}${year},\n${Object.entries(fields).filter(([,v]) => v).map(([k,v]) => `  ${k} = {${field(v)}}`).join(",\n")}\n}`;
+    return `@${book ? "book" : chapter ? "incollection" : webRecord ? "misc" : "article"}{${(authors[0] || "paper").replace(/[^a-z]/gi, "")}${year},\n${Object.entries(fields).filter(([,v]) => v).map(([k,v]) => `  ${k} = {${field(v)}}`).join(",\n")}\n}`;
   }
   if (style === "RIS")
-    return `TY  - ${book ? "BOOK" : chapter ? "CHAP" : "JOUR"}\nTI  - ${p.title}\n${authors.map((a) => `AU  - ${a}`).join("\n")}\nPY  - ${year}\nJO  - ${p.journal || ""}\nDO  - ${doi}\nUR  - ${url}\nER  - `;
+    return `TY  - ${book ? "BOOK" : chapter ? "CHAP" : webRecord ? "GEN" : "JOUR"}\nTI  - ${p.title}\n${authors.map((a) => `AU  - ${a}`).join("\n")}\nPY  - ${year}\nJO  - ${p.journal || ""}\nDO  - ${doi}\nUR  - ${url}\nER  - `;
   const formatted = authors.map((a) => {
     const words = a.split(" ");
     const last = words.pop();

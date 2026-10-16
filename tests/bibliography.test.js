@@ -64,3 +64,13 @@ test('linked HTML bibliography escapes source content and never invents missing 
   assert.ok(output.includes('Source link unavailable'));
   assert.equal((output.match(/<a /g)||[]).length,1);
 });
+
+
+test('non-publication research records retain links without being exported as journal articles', () => {
+  for (const type of ['compound','clinical-trial','drug-label','dataset','grant','software']) {
+    const source={type,title:'Original source record',authors:[],url:'https://example.com/record/42'};
+    assert.match(citation(source,'BibTeX'), /^@misc\{/);
+    assert.match(citation(source,'RIS'), /^TY  - GEN/);
+    assert.ok(citation(source,'RIS').includes(source.url));
+  }
+});

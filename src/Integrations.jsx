@@ -215,34 +215,20 @@ export default function Integrations() {
           <span className="integration-icon">
             <Server size={23} />
           </span>
-          <h2>AI provider</h2>
+          <h2>ScrapeTx Ai</h2>
           <span
             className={`integration-state ${ai?.configured ? "" : "pending"}`}
           >
             {ai?.configured ? (
-              <>Configured · {ai.model}</>
+              <>Connected assistant</>
             ) : (
-              "Needs your API key and model"
+              "Connect your assistant"
             )}
           </span>
           <p>
-            Generate source-linked syntheses, document explanations, academic
-            drafts, paraphrases, and concept maps using an OpenAI-compatible
-            provider.
+            Explain papers, compare evidence, draft literature reviews, and save useful answers with linked sources.
           </p>
-          <div className="integration-env">
-            <code>
-              AI_BASE_URL=https://api.openai.com/v1
-              <br />
-              AI_API_KEY=your-key
-              <br />
-              AI_MODEL=your-model
-            </code>
-          </div>
-          <p className="integration-hint">
-            Set these in the ignored .env.local file and restart the API server.
-            Credentials stay server-side. Requests can incur provider charges.
-          </p>
+          <p className="integration-hint">Your assistant connection is configured privately on this server. Research text is sent only when you ask for an AI response.</p>
           <Link className="btn" to="/chat">
             Open Research Agent <ArrowRight size={14} />
           </Link>
@@ -251,7 +237,7 @@ export default function Integrations() {
           <span className="integration-icon">
             <Globe size={23} />
           </span>
-          <h2>Research databases</h2>
+          <h2>Research sources</h2>
           <span className="integration-state">
             <CheckCircle2 size={13} /> Public APIs integrated
           </span>
@@ -263,6 +249,7 @@ export default function Integrations() {
               </div>
             ))}
           </div>
+          <div className="source-status-list">{["arXiv preprints", "Research datasets", "Grants.gov", "Python packages"].map(name=><div key={name}><span>{name}</span><small>Public source</small></div>)}</div>
           <Link className="btn" to="/pharma">
             Explore pharma sources <ArrowRight size={14} />
           </Link>

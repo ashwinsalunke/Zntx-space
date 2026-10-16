@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { api, csv, download, excerpt, citation } from "./lib.js";
 import { useApp, Button, Empty } from "./App.jsx";
-import AiPanel from "./AiPanel.jsx";
+import AiPanel, { ResearchText } from "./AiPanel.jsx";
 import "./research-chat.css";
 export default function ResearchChat() {
   const { id: routeId } = useParams();
@@ -153,6 +153,7 @@ export default function ResearchChat() {
         citations: result.citations,
         model: result.model,
         generatedAt: result.generatedAt,
+        warnings: result.warnings,
       },
     };
     setTurns((v) => v.map((t) => (t.id === turn.id ? updated : t)));
@@ -250,10 +251,9 @@ export default function ResearchChat() {
                 {turn.result.papers.length} unique records retained.{" "}
                 {turn.result.coverage.withAbstract} include abstracts.
               </p>
-              <small>
-                {turn.result.ranking.description} This bounded search is a
-                starting point for a review.
-              </small>
+              <details className="research-method"><summary>Search method and coverage</summary><small>
+                {turn.result.ranking.description} This bounded search is a starting point for a review.
+              </small></details>
             </div>
             {turn.ai ? (
               <div className="saved-synthesis">
@@ -272,10 +272,10 @@ export default function ResearchChat() {
                     Download
                   </Button>
                 </div>
-                <pre>{turn.ai.text}</pre>
+                <div className="saved-synthesis-text"><ResearchText text={turn.ai.text} citations={turn.ai.citations || []} prefix={`chat-${turn.id}`} /></div>
                 <ol>
-                  {turn.ai.citations.map((s) => (
-                    <li key={s.id}>
+                  {(turn.ai.citations || []).map((s, index) => (
+                    <li key={s.id} id={`chat-${turn.id}-source-${index}`}>
                       <a href={s.url} target="_blank" rel="noreferrer">
                         {s.title} <ExternalLink size={11} />
                       </a>
@@ -283,17 +283,18 @@ export default function ResearchChat() {
                   ))}
                 </ol>
                 <small>
-                  {turn.ai.model} ·{" "}
+                  ScrapeTx Ai ·{" "}
                   {new Date(turn.ai.generatedAt).toLocaleString()}
                 </small>
               </div>
             ) : (
               <AiPanel
+                autoGenerate={params.get("auto") === "1"}
                 task="synthesis"
                 prompt={`Answer this research question using only the supplied evidence: ${turn.query}. Compare study approaches, findings, limitations and open questions. Cite claims and explicitly identify missing evidence.`}
                 evidence={turn.result.papers
                   .filter((p) => p.abstract)
-                  .slice(0, 20)}
+                  .slice(0, 8)}
                 label="Synthesize the evidence"
                 onResult={(r) => saveSynthesis(turn, r)}
               />

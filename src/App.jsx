@@ -86,6 +86,9 @@ const PharmaHub = lazy(() => import("./PharmaHub.jsx"));
 const ResearchProjects = lazy(() => import("./ResearchProjects.jsx"));
 const Integrations = lazy(() => import("./Integrations.jsx"));
 const ResearchChat = lazy(() => import("./ResearchChat.jsx"));
+const HomeWorkspace = lazy(() => import("./HomeWorkspace.jsx"));
+const LibraryWorkspace = lazy(() => import("./LibraryWorkspace.jsx"));
+const SourceWorkspace = lazy(() => import("./SourceWorkspace.jsx"));
 const Ctx = createContext();
 export const useApp = () => useContext(Ctx);
 const navigation = [
@@ -240,15 +243,22 @@ export default function App() {
           method: "DELETE",
         });
         setLibrary((v) => v.filter((x) => x.id !== p.id));
-        notify("Paper removed from your library.");
+        notify("Source removed from your library.");
       } else {
         await api("/api/library", { method: "POST", body: JSON.stringify(p) });
         setLibrary((v) => [p, ...v]);
-        notify("Paper saved to your library.");
+        notify("Source saved to your library.");
       }
     } catch (e) {
       notify(e.message, true);
     }
+  };
+  const refreshLibrary = () => api("/api/library").then(setLibrary);
+  const saveNote = async (data) => {
+    const record = { ...data, id: data.id || crypto.randomUUID(), type: "research-note", createdAt: data.createdAt || new Date().toISOString() };
+    await api("/api/records/notes/" + record.id, { method: "PUT", body: JSON.stringify(record) });
+    notify("Saved to My Library.");
+    return record;
   };
   const toggleSidebar = () => {
     if (innerWidth < 760) {
@@ -270,7 +280,7 @@ export default function App() {
     "Research workspace";
   return (
     <Ctx.Provider
-      value={{ library, savePaper, history, refreshHistory, notify, navigate }}
+      value={{ library, savePaper, refreshLibrary, saveNote, history, refreshHistory, notify, navigate }}
     >
       <div
         className={`app ${collapsed ? "collapsed" : ""} ${mobile ? "mobile-open" : ""}`}
@@ -428,7 +438,7 @@ export default function App() {
             <Routes>
               <Route
                 path="/"
-                element={<HomePage key={location.state?.reset || "home"} />}
+                element={<HomeWorkspace key={location.state?.reset || "home"} />}
               />
               <Route path="/search" element={<ResearchPage />} />
               <Route path="/pharma" element={<PharmaHub />} />
@@ -436,7 +446,8 @@ export default function App() {
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/chat" element={<ResearchChat />} />
               <Route path="/chat/:id" element={<ResearchChat />} />
-              <Route path="/library" element={<LibraryPage />} />
+              <Route path="/library" element={<LibraryWorkspace />} />
+              <Route path="/sources/:sourceId" element={<SourceWorkspace />} />
               <Route path="/agents" element={<Gallery />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/chat-pdf" element={<PdfWorkspace />} />
@@ -587,7 +598,7 @@ const quickActions = [
   ["Diagrams", Network, "diagram"],
   ["Presentation", Presentation, "slides"],
 ];
-function Composer({
+export function Composer({
   value,
   setValue,
   onSubmit,
@@ -599,15 +610,12 @@ function Composer({
 }) {
   const { navigate, notify } = useApp();
   const [tools, setTools] = useState(false);
-  const [model, setModel] = useState("Lite");
-  const [models, setModels] = useState(false);
   const [listening, setListening] = useState(false);
   const menuRef = useRef();
   useEffect(() => {
     const close = (e) => {
       if (!menuRef.current?.contains(e.target)) {
         setTools(false);
-        setModels(false);
       }
     };
     document.addEventListener("pointerdown", close);
@@ -637,7 +645,7 @@ function Composer({
       className={`composer ${compact ? "compact" : ""}`}
       onSubmit={(e) => {
         e.preventDefault();
-        if (value.trim()) onSubmit(model);
+        if (value.trim()) onSubmit();
       }}
     >
       <textarea
@@ -648,7 +656,7 @@ function Composer({
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (value.trim() && !busy) onSubmit(model);
+            if (value.trim() && !busy) onSubmit();
           }
         }}
       />
@@ -668,7 +676,6 @@ function Composer({
             aria-expanded={tools}
             onClick={() => {
               setTools(!tools);
-              setModels(false);
             }}
           >
             {mode === "search"
@@ -695,49 +702,7 @@ function Composer({
               ))}
             </div>
           )}
-          <div className="model-selector">
-            <button
-              type="button"
-              className="text-btn"
-              aria-expanded={models}
-              onClick={() => {
-                setModels(!models);
-                setTools(false);
-              }}
-            >
-              {model}
-              <ChevronDown size={13} />
-            </button>
-            {models && (
-              <div className="popover model-popover">
-                {["Lite", "Research"].map((v) => (
-                  <button
-                    type="button"
-                    key={v}
-                    onClick={() => {
-                      setModel(v);
-                      setModels(false);
-                      if (v === "Research")
-                        notify(
-                          "Research mode selected. Use Europe PMC in results for full abstracts.",
-                        );
-                    }}
-                  >
-                    <span>
-                      <b>{v}</b>
-                      <small>
-                        {v === "Lite"
-                          ? "Quick discovery"
-                          : "Life science abstracts"}
-                      </small>
-                    </span>
-                    {v === model && <Check size={15} />}
-                  </button>
-                ))}
-                <p className="small muted">Public research data · Demo mode</p>
-              </div>
-            )}
-          </div>
+          <span className="composer-assistant"><Sparkles size={14} aria-hidden="true"/> ScrapeTx Ai</span>
         </div>
         <button
           type="button"
@@ -760,106 +725,6 @@ function Composer({
         </button>
       </div>
     </form>
-  );
-}
-function HomePage() {
-  const [value, setValue] = useState("");
-  const [mode, setMode] = useState("search");
-  const { navigate } = useApp();
-  const submit = (m = mode, model = "Lite") => {
-    if (m === "draft")
-      navigate("/ai-writer?topic=" + encodeURIComponent(value));
-    else if (m === "diagram" || m === "slides")
-      navigate(
-        (m === "diagram" ? "/diagrams" : "/presentation") +
-          "?topic=" +
-          encodeURIComponent(value),
-      );
-    else
-      navigate(
-        "/chat?q=" +
-          encodeURIComponent(value) +
-          (m === "review" ? "&view=overview" : "") +
-          (model === "Research" ? "&source=europepmc" : ""),
-      );
-  };
-  return (
-    <div className="home-content">
-      <section className="home-hero">
-        <div className="hero-brand">
-          <img src="/logo.svg" alt="" />
-          <span>Zntx Space</span>
-        </div>
-        <h1>How can I help with your research?</h1>
-        <Composer
-          value={value}
-          setValue={setValue}
-          onSubmit={(model) => submit(mode, model)}
-          mode={mode}
-          setMode={setMode}
-        />
-        <div className="quick-actions">
-          {quickActions.map(([label, Icon, id]) => (
-            <button
-              className={`btn ${mode === id && mode !== "search" ? "selected" : ""}`}
-              key={id}
-              onClick={() => {
-                if (value.trim()) submit(id);
-                else {
-                  setMode(id);
-                  if (id === "draft") navigate("/ai-writer");
-                  else if (id === "diagram") navigate("/diagrams");
-                  else if (id === "slides") navigate("/presentation");
-                  else if (id === "review") navigate("/search");
-                  else document.querySelector("textarea")?.focus();
-                }
-              }}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="home-more">
-        <div className="eyebrow">YOUR NEXT DISCOVERY STARTS HERE</div>
-        <h2>From a question to a clearer picture.</h2>
-        <div className="home-features">
-          {[
-            [
-              Search,
-              "Find your starting point",
-              "Discover papers from public scholarly databases.",
-              "/search",
-            ],
-            [
-              BookOpen,
-              "Understand the details",
-              "Read PDFs and find answers in source passages.",
-              "/chat-pdf",
-            ],
-            [
-              PenLine,
-              "Make room for your ideas",
-              "Build a draft and keep your references close.",
-              "/ai-writer",
-            ],
-          ].map(([I, t, d, p]) => (
-            <Link key={p} to={p}>
-              <I size={24} />
-              <h3>{t}</h3>
-              <p>{d}</p>
-              <span>
-                Explore <ArrowRight size={14} />
-              </span>
-            </Link>
-          ))}
-        </div>
-        <p className="home-footnote">
-          Zntx Space · Open research workspace, inspired by SciSpace
-        </p>
-      </section>
-    </div>
   );
 }
 function SearchForm({ q, setQ, search, source, setSource, busy }) {
@@ -1575,81 +1440,6 @@ function PaperDetail({ paper: p, onClose }) {
         </div>
       </div>
     </Modal>
-  );
-}
-function LibraryPage() {
-  const { library, navigate } = useApp();
-  const [q, setQ] = useState("");
-  const [paper, setPaper] = useState(null);
-  const papers = library.filter((p) =>
-    (p.title + " " + p.authors.join(" "))
-      .toLowerCase()
-      .includes(q.toLowerCase()),
-  );
-  return (
-    <section className="page">
-      <div className="page-heading">
-        <div>
-          <h1>My Library</h1>
-          <p>A home for the research you want to come back to.</p>
-        </div>
-        <Button
-          icon={Download}
-          disabled={!papers.length}
-          onClick={() =>
-            download(
-              "zntx-library.bib",
-              papers.map((p) => citation(p, "BibTeX")).join("\n\n"),
-            )
-          }
-        >
-          Export library
-        </Button>
-      </div>
-      <div className="library-summary">
-        <div>
-          <Library size={23} />
-          <strong>{library.length}</strong>
-          <span>saved papers</span>
-        </div>
-        <span>
-          <span className="live-dot" /> Private browser workspace
-        </span>
-      </div>
-      <div className="field-with-icon">
-        <Search size={17} />
-        <input
-          aria-label="Search library"
-          placeholder="Search your library…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </div>
-      {!papers.length ? (
-        <Empty
-          icon={Library}
-          title={q ? "No matching papers" : "Your next discovery belongs here"}
-        >
-          {q ? (
-            "Try another title or author."
-          ) : (
-            <>
-              Save interesting papers as you explore. They’ll be here whenever
-              you need them.
-              <br />
-              <Button primary icon={Search} onClick={() => navigate("/search")}>
-                Find papers
-              </Button>
-            </>
-          )}
-        </Empty>
-      ) : (
-        papers.map((p) => (
-          <PaperCard key={p.id} paper={p} onOpen={() => setPaper(p)} />
-        ))
-      )}
-      {paper && <PaperDetail paper={paper} onClose={() => setPaper(null)} />}
-    </section>
   );
 }
 const agentData = [

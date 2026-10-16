@@ -25,7 +25,7 @@ REA's initial isolated reference capture received CloudFront 403. Evidence `ev_9
 | Connectors | Owner-restricted Zotero and Streamable HTTP MCP configuration, explicit read-only tool calls | Personal credentials and MCP servers not configured; no OAuth onboarding or write tools |
 | Release | MIT source, CI template, Dockerfile, self-host instructions | No public web host provisioned; Docker build not exercised on this Mac |
 
-The AI adapter was validated with controlled HTTP provider responses, including citation checks, timeouts, error redaction, and concurrency limits. No external AI generation was claimed: the local setup currently requires `AI_API_KEY` and `AI_MODEL`.
+The initial AI adapter was validated with controlled HTTP responses. The version 0.3.0 follow-up below records live generation using a privately configured account; source control contains no working provider credential.
 
 ## Verification of version 0.2.0
 
@@ -52,3 +52,24 @@ GitHub’s connected OAuth token rejected workflow creation because it lacks the
 Added clickable source titles and original-source links, exact DOI lookup, all-type Crossref bibliography search, normalized DOI/publisher/PubMed/PMC URL fallbacks, book/chapter export types, and a linked HTML bibliography download. Seven added tests cover exact lookup, title matching, source fallbacks, unsafe URL rejection, URL retention across citation formats, book/chapter metadata, and escaped HTML. The complete suite now has 53 passing tests; the production build passed.
 
 Browser verification resolved DOI 10.3389/fendo.2021.645563, added Safety of Semaglutide to the bibliography, downloaded HTML containing its DOI anchor, and followed the in-app bibliography link to the original Frontiers article. REA capture `ev_f96c6fd407c2eeed6c75eb0d8251cdb76ece06c9a8d777d66da721ca0869307c` shows the populated bibliography with zero page errors in the bounded scenario.
+
+
+## Version 0.3.0: source selection, personal library, and ScrapeTx Ai
+
+A further native Chrome review inspected SciSpace's expanded USE options and signed-in My Library. The home list exposes Deep Research, Zotero Library, Mendeley Library, PubMed, Google Scholar, arXiv, Python Library, Grants.gov, Uploaded Files, ClinicalTrials.gov, Google Search, Google Patents, and Online Datasets. Choosing PubMed built a task prompt in the composer. The reference also offered an image generator; it was not part of the requested 13 options. Its folder view included Files, Notebooks, and Chats, folder-scoped tasks, PDF upload, Zotero import, a notebook entry, and Share/Rename/Delete menus. These were read-only observations; no reference account data was deleted or submitted for generation.
+
+Zntx Space now has all 13 requested source shortcuts, live additional public-source adapters, dedicated external-search pages, and a library with collections, notes, saved searches, original-source links, RIS imports, and linked exports. The final home follows the user's preference for practical research software: a clear query, source selection, recently saved references, and compact research-tool links. Inter remains bundled locally; text is larger, primary buttons remain black, and hover motion is restrained with reduced-motion support. Decorative hero copy and promotional feature cards were removed.
+
+Verification on 16 October 2026:
+
+- 85 automated checks passed, including native AI wire format, server-only credentials, citation validation, availability fallback, structured graph validation, public-source provenance, RIS parsing, and non-article citation exports.
+- Production build passed and the full dependency audit reported zero vulnerabilities.
+- Live ScrapeTx Ai generation returned linked evidence and a validated three-node research workflow. Public identity fields contain only ScrapeTx Ai. The originally supplied latest alias experienced capacity errors/timeouts; local private configuration uses an account-accessible deployment that successfully generated output. Optional capacity fallback remains bounded. The UI supplies numbered evidence identifiers. Explicit citation groups are normalized only when every identifier was supplied; unknown identifiers remain rejected.
+- All four additional sources returned live records: arXiv preprints, Grants.gov funding notices, DataCite datasets, and PyPI package metadata.
+- Supabase verification passed create/read/update, cross-workspace isolation, and missing-token rejection; its disposable record was cleaned up.
+- Browser checks created a Cardiovascular evidence collection, organized a real PubMed paper, saved a source-linked reading plan, and verified the records after reload. A real RIS reference imported with its original DOI link.
+- Browser PDF extraction read the 19-page Safety of Semaglutide paper, found the original limitation passage on page 13, and saved that page-linked excerpt to My Library. This is retrieved source text, not a generated scientific finding.
+- Final home captures at 1440 and 375 pixels retained zero page errors: `ev_3445c91f00cdb52d523366a9fb8738ce30c46aee09952e7657be82da0f921186` and `ev_e5ae79bd4d28418ebfc65b646083a8283a2bbd761a25166d9c75e8108cd4b60f`. The desktop screenshot is saved locally in ignored `artifacts/refreshed-home.png`.
+- A live PyPI source page and the ClinicalTrials.gov shortcut at 768 pixels also retained zero page errors: `ev_da0ee083a09d5705286ac5ed9696b096bdca060f561e137812ad24758339beb8` and `ev_03e779e97c38a4f18b540b9553724e7cff2ce17bdb34b72490868a1a45d1b9f0`.
+
+These bounded checks do not establish exhaustive SciSpace Pro parity or recover any private SciSpace backend. Google searches open original sites; Mendeley synchronization, private Zotero credentials, and additional personal MCP servers still require their own setup. Public web hosting has not been provisioned.

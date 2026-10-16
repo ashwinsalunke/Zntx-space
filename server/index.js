@@ -16,6 +16,7 @@ import aiRouter from "./ai.js";
 import discoveryRouter from "./discovery.js";
 import exportRouter from "./exports.js";
 import integrationsRouter from "./integrations.js";
+import sourcesRouter from "./sources.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = express();
 app.disable("x-powered-by");
@@ -87,7 +88,7 @@ app.get("/api/config", (req, res) =>
     cloud: storageInfo.cloud,
     projectUrl: storageInfo.projectUrl,
     workspaceMode: "private browser workspace",
-    version: "0.2.0",
+    version: "0.3.0",
   }),
 );
 app.use("/api/biomedical", biomedicalRouter);
@@ -95,6 +96,7 @@ app.use("/api/ai", aiRouter);
 app.use("/api/discovery", discoveryRouter);
 app.use("/api/export", exportRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/sources", sourcesRouter);
 const cache = new Map();
 app.get("/api/papers", async (req, res, next) => {
   const q = String(req.query.q || "")

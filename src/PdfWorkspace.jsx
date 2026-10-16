@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
@@ -17,6 +18,7 @@ import {
   Info,
   Table2,
   Plus,
+  Bookmark,
 } from "lucide-react";
 import { Button, Empty, useApp } from "./App.jsx";
 import { download, wordCount } from "./lib.js";
@@ -38,13 +40,14 @@ const samplePages = [
   },
 ];
 export default function PdfWorkspace({ extract = false }) {
-  const { notify } = useApp();
+  const { notify, saveNote } = useApp();
+  const [params] = useSearchParams();
   const input = useRef();
   const [doc, setDoc] = useState(null);
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState("");
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = useState(params.get("q") || "");
   const [messages, setMessages] = useState([]);
   const [view, setView] = useState("text");
   const [page, setPage] = useState(1);
@@ -68,10 +71,12 @@ export default function PdfWorkspace({ extract = false }) {
     }
     setBusy(true);
     setError("");
+    let loadingTask;
     try {
-      const pdf = await pdfjs.getDocument({
+      loadingTask = pdfjs.getDocument({
         data: new Uint8Array(await file.arrayBuffer()),
-      }).promise;
+      });
+      const pdf = await loadingTask.promise;
       if (pdf.numPages > 100)
         throw new Error(
           "This demo supports up to 100 pages. Please choose a shorter PDF.",
@@ -103,7 +108,6 @@ export default function PdfWorkspace({ extract = false }) {
       setMessages([]);
       setView("text");
       setPage(1);
-      await pdf.destroy();
       notify("PDF ready. Ask a question or explore the extracted text.");
     } catch (e) {
       setError(
@@ -111,6 +115,7 @@ export default function PdfWorkspace({ extract = false }) {
           "This PDF could not be read. Try an unlocked PDF with selectable text.",
       );
     } finally {
+      await loadingTask?.destroy().catch(() => {});
       setBusy(false);
     }
   };
@@ -477,6 +482,10 @@ export default function PdfWorkspace({ extract = false }) {
                     )}
                     <div>
                       <p>{m.text}</p>
+                      {m.passages?.length > 0 && <button className="btn" onClick={async () => {
+                        try { await saveNote({title: doc.name + " · Reading note", sourceTitle: doc.name, content: m.passages.map(p => `Page ${p.page}\n${p.text}`).join("\n\n"), documentName: doc.name, pages: m.passages.map(p => p.page)}); }
+                        catch(e) {notify(e.message,true);}
+                      }}><Bookmark size={13}/> Save passages to library</button>}
                       {m.passages?.map((p, j) => (
                         <blockquote key={j}>
                           {p.text}
