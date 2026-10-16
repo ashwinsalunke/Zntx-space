@@ -20,7 +20,7 @@ export function crossrefPaper(p) {
     doi: p.DOI,
     url: p.DOI ? `https://doi.org/${p.DOI}` : p.URL,
     abstract: stripTags(p.abstract || ""),
-    citations: p["is-referenced-by-count"] || 0,
+    citations: p["is-referenced-by-count"] == null ? null : Number(p["is-referenced-by-count"]),
     type: p.type || "Research paper",
     source: "Crossref",
     volume: p.volume || "",
@@ -42,7 +42,7 @@ export function europePaper(p) {
       ? `https://doi.org/${p.doi}`
       : `https://europepmc.org/article/${p.source}/${p.id}`,
     abstract: stripTags(p.abstractText || ""),
-    citations: Number(p.citedByCount) || 0,
+    citations: p.citedByCount == null ? null : Number(p.citedByCount),
     type: p.pubTypeList?.pubType?.[0] || "Journal article",
     source: "Europe PMC",
     pmcid: /^PMC\d+$/.test(p.pmcid || "") ? p.pmcid : null,

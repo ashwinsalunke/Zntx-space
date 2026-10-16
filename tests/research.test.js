@@ -43,6 +43,7 @@ test("missing abstract stays explicitly absent and does not become generated fin
     issued: { "date-parts": [[2024]] },
   });
   assert.equal(p.abstract, "");
+  assert.equal(p.citations, null);
   assert.equal(p.year, 2024);
   assert.deepEqual(p.authors, ["Researcher"]);
   assert.equal(p.url, "https://doi.org/10.1234/example");
