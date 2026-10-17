@@ -13,6 +13,7 @@ import {
 import { download } from "./lib.js";
 import { useApp } from "./App.jsx";
 import "./ai-panel.css";
+import DiagramFigure from "./DiagramFigure.jsx";
 
 const safeLink = (url) => {
   try {
@@ -315,40 +316,10 @@ export default function AiPanel({
             <strong>{result.diagram?.title || "Research response"}</strong>
             <span>ScrapeTx AI</span>
           </div>
+          {result.diagram && <DiagramFigure diagram={result.diagram} />}
           <div className="zai-output">
             <ResearchText text={result.text} citations={sources} prefix={prefix} />
           </div>
-          {result.diagram && (
-            <div className="zai-diagram">
-              <div className="zai-nodes">
-                {result.diagram.nodes.map((node) => (
-                  <div className="zai-node" key={node.id}>
-                    <small>{node.id}</small>
-                    <span>{node.label}</span>
-                  </div>
-                ))}
-              </div>
-              {!!result.diagram.edges.length && (
-                <ul className="zai-edges">
-                  {result.diagram.edges.map((edge, index) => (
-                    <li key={index}>
-                      {
-                        result.diagram.nodes.find(
-                          (node) => node.id === edge.from,
-                        )?.label
-                      }{" "}
-                      →{" "}
-                      {
-                        result.diagram.nodes.find((node) => node.id === edge.to)
-                          ?.label
-                      }
-                      {edge.label ? ` · ${edge.label}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
           {!!sources.length && (
             <div className="zai-sources">
               <strong>Sources cited</strong>
@@ -377,7 +348,7 @@ export default function AiPanel({
           <div className="zai-controls">
             <button className="zai-secondary" onClick={async () => {
               try {
-                await saveNote({title: result.diagram?.title || prompt.slice(0,100), content: exportText(result), citations: result.citations || [], assistant: "ScrapeTx AI"});
+                await saveNote({title: result.diagram?.title || prompt.slice(0,100), content: exportText(result), citations: result.citations || [], assistant: "ScrapeTx AI", ...(result.diagram ? {diagram:result.diagram} : {})});
                 setActionMessage("Saved to My Library.");
               } catch (e) { setActionMessage(e.message); }
             }}><Bookmark size={15} aria-hidden="true"/> Save to library</button>

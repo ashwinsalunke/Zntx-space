@@ -1,4 +1,5 @@
 import express from "express";
+import { fetchPublicPdf } from "./public-pdf.js";
 import { createHash, randomBytes } from "node:crypto";
 import { workspaceToken } from "./storage.js";
 import { stripTags } from "./research.js";
@@ -97,7 +98,7 @@ function mendeleyReference(item, secret) {
 }
 
 /** Source libraries are read only. Only copies in this workspace are written. */
-export function createLibrarySyncRouter({ fetchImpl = fetch, getSecret, setSecret, deleteSecret, listRecords, putRecord, getRecord, tokenFor = workspaceToken, appOrigin = process.env.APP_ORIGIN || "http://127.0.0.1:5173", timeoutMs = 60000, maxRecords = 500, stateTtlMs = 10 * 60 * 1000, now = () => Date.now() } = {}) {
+export function createLibrarySyncRouter({ fetchImpl = fetch, loadPdf = fetchPublicPdf, getSecret, setSecret, deleteSecret, listRecords, putRecord, getRecord, tokenFor = workspaceToken, appOrigin = process.env.APP_ORIGIN || "http://127.0.0.1:5173", timeoutMs = 60000, maxRecords = 500, stateTtlMs = 10 * 60 * 1000, now = () => Date.now() } = {}) {
   for (const fn of [getSecret, setSecret, deleteSecret, listRecords, putRecord]) if (typeof fn !== "function") throw new TypeError("Library sync requires vault and workspace storage functions.");
   const origin = new URL(appOrigin);
   if (!["http:", "https:"].includes(origin.protocol) || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash || (origin.protocol === "http:" && !["127.0.0.1", "localhost", "[::1]"].includes(origin.hostname))) throw new TypeError("APP_ORIGIN must be a public HTTPS origin or an explicit local HTTP origin.");
@@ -327,6 +328,123 @@ export function createLibrarySyncRouter({ fetchImpl = fetch, getSecret, setSecre
     await setSecret(token, "zotero", secret);
     res.json({ connected: true, provider: "zotero", mode: MODE, libraryId, libraryType, username: secret.username });
   }, "zotero"));
+  router.get(
+    "/mendeley/documents/:id/pdf",
+    route(async (req, res, token) => {
+      const documentId = remoteId(req.params.id);
+      if (!documentId)
+        throw new SyncError(400, "Choose a valid Mendeley document.");
+      let secret = await getSecret(token, "mendeley");
+      if (!secret?.accessToken)
+        throw new SyncError(
+          403,
+          "Connect Mendeley in Integrations before opening its attachments.",
+        );
+      const signal = AbortSignal.timeout(timeoutMs);
+      let refreshed = false;
+      const refresh = async () => {
+        if (refreshed || !secret.refreshToken)
+          throw new SyncError(
+            403,
+            "Reconnect Mendeley to read its attachments.",
+          );
+        secret = await tokenExchange(
+          secret,
+          { grant_type: "refresh_token", refresh_token: secret.refreshToken },
+          signal,
+        );
+        await setSecret(token, "mendeley", secret);
+        refreshed = true;
+      };
+      if (secret.expiresAt <= now() + 30000) await refresh();
+      const read = async (url, manual = false) => {
+        const options = () => ({
+          redirect: manual ? "manual" : "error",
+          signal,
+          headers: {
+            Authorization: `Bearer ${secret.accessToken}`,
+            Accept: "application/vnd.mendeley-file.1+json",
+          },
+        });
+        let response = await fetchImpl(url, options());
+        if (response.status === 401) {
+          await response.body?.cancel();
+          await refresh();
+          response = await fetchImpl(url, options());
+        }
+        if (!response.ok && !(manual && response.status === 303)) {
+          await response.body?.cancel();
+          throw new SyncError(
+            502,
+            "Mendeley could not provide this attachment. Reconnect or check access in your library.",
+          );
+        }
+        return response;
+      };
+      let next = `${MENDELEY}/files?${new URLSearchParams({ document_id: documentId, limit: "100" })}`,
+        file;
+      for (let page = 0; next && page < 5; page++) {
+        const response = await read(next);
+        const files = await boundedJson(response);
+        if (!Array.isArray(files))
+          throw new SyncError(
+            502,
+            "Mendeley returned an unreadable attachment list.",
+          );
+        file = files.find(
+          (f) =>
+            f.document_id === documentId &&
+            f.mime_type === "application/pdf" &&
+            remoteId(f.id),
+        );
+        if (file) break;
+        next = nextLink(response, MENDELEY, "/files");
+        if (
+          next &&
+          new URL(next).searchParams.get("document_id") !== documentId
+        )
+          throw new SyncError(
+            502,
+            "Mendeley returned an unexpected attachment page.",
+          );
+      }
+      if (!file)
+        throw new SyncError(
+          404,
+          "No PDF attachment was found for this Mendeley reference. Open the original source to check availability.",
+        );
+      if (Number(file.size) > 20 * 1024 * 1024)
+        throw new SyncError(
+          413,
+          "This attachment exceeds the 20 MB reader limit.",
+        );
+      const response = await read(`${MENDELEY}/files/${file.id}`, true);
+      const location = response.headers.get("location");
+      await response.body?.cancel();
+      if (response.status !== 303 || !location)
+        throw new SyncError(
+          502,
+          "Mendeley did not provide its signed PDF download link.",
+        );
+      // Never forward the bearer token to the signed storage location or expose that URL.
+      let bytes;
+      try {
+        bytes = await loadPdf(location);
+      } catch {
+        throw new SyncError(
+          502,
+          "The Mendeley PDF download failed. Retry or download it from Mendeley directly.",
+        );
+      }
+      res
+        .set({
+          "Content-Type": "application/pdf",
+          "Content-Disposition": 'inline; filename="mendeley-paper.pdf"',
+          "Cache-Control": "no-store",
+        })
+        .send(bytes);
+    }, "mendeley"),
+  );
   router.post("/mendeley/connect", route(async (req, res, token) => {
     const clientId = req.body?.clientId, clientSecret = req.body?.clientSecret;
     if (typeof clientId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(clientId) || typeof clientSecret !== "string" || !/^[\x21-\x7e]{8,512}$/.test(clientSecret)) throw new SyncError(400, "Enter the client ID and secret from your registered Mendeley application.", "INVALID_INPUT");

@@ -1,6 +1,6 @@
 # Search connections, source checks, and research data access
 
-Open **Integrations** in Zntx Space to connect personal accounts. Open **Source Checks** to inspect publication and US drug-approval records. Public verification services require no new account. Personal search and reference-library services require your own credentials or consent.
+Open **Integrations** in scrapeTx to connect personal accounts. Open **Source Checks** to inspect publication and US drug-approval records. Public verification services require no new account. Personal search and reference-library services require your own credentials or consent.
 
 ## Google Search, Scholar, and Patents
 
@@ -44,9 +44,19 @@ The connector uses [Zotero API version checkpoints](https://www.zotero.org/suppo
 2. Register the exact callback displayed in Integrations. For the default local preview it is `http://127.0.0.1:5173/api/library-sync/mendeley/callback`.
 3. Enter the application ID and secret in Integrations and choose **Authorize on Mendeley**. Sign in and grant consent on Mendeley's page, then sync references after returning.
 
-Mendeley's documented [authorization code flow](https://dev.mendeley.com/reference/topics/authorization_auth_code.html) requires scope `all`; this connector nevertheless uses only reference/profile read APIs. The app never collects a Mendeley password. OAuth state expires and is single use, tokens refresh server-side, and pagination is restricted to the provider host. A failed replacement authorization preserves the previous working connection. Sync is a read-only pull, not bidirectional editing, PDF attachment synchronization, or a background schedule.
+Mendeley's documented [authorization code flow](https://dev.mendeley.com/reference/topics/authorization_auth_code.html) requires scope `all`; this connector nevertheless uses only reference/profile read APIs and explicitly requested attachment downloads. The app never collects a Mendeley password. OAuth state expires and is single use, tokens refresh server-side, and pagination is restricted to the provider host. A failed replacement authorization preserves the previous working connection. Sync is a read-only pull; it does not upload library edits or run a background schedule. The Mendeley source tool searches imported copies by title, author, abstract, DOI and tags. Available PDF attachments can be opened on demand from the source tool or My Library; PDFs are not copied by the metadata sync.
 
 Disconnecting removes the stored credentials and leaves imported references available. RIS import remains an alternative that needs no account connector.
+
+## PDF reading and downloads
+
+Source results with a supplied PDF link offer **Read PDF**, opening `/read-pdf` with an embedded document viewer, an original-source link and a download button. Public PDFs are loaded through `/api/source-pdf` to support sources without browser CORS headers. The loader permits HTTPS, resolves and pins public DNS addresses for every redirect, rejects private networks and credentials, caps responses at 20 MB, and verifies PDF magic bytes. It does not forward browser cookies or unlock subscription content. A blocked or non-PDF source returns a visible error with an original-source action.
+
+Mendeley attachments use `/api/library-sync/mendeley/documents/:id/pdf`. The server reads the authorized account's attachment list and requests a temporary signed download URL using the documented Files API. The bearer token stays on `api.mendeley.com`; the signed URL is retrieved without bearer credentials and is never exposed in the app URL or API output. Access requires that browser workspace's Mendeley connection. Private attachments are not made public for other users. Account tokens refresh when needed. References without PDF attachments still retain their supplied source links.
+
+## Scientific diagrams
+
+The Diagrams tool sends the user's requested process to the assistant, then draws its validated node/edge output as an illustrated SVG. It supports left-to-right or top-to-bottom layout, optional scientific illustrations, zoom, an accessible text description, and SVG/PNG downloads. Choose up to six saved sources with abstracts before generating to supply evidence. Changing that selection does not silently start a new generation. Without evidence, the output is marked as unverified. **Save to library** stores both its text and diagram data so the visual can be reopened and exported from the saved note. Labels and relationships remain AI-generated and require scientific review.
 
 ## Credential storage and deployment
 
@@ -62,7 +72,7 @@ There is no universal credential that unlocks a research firm's private data. Ch
 - **Controlled clinical-trial data:** identify a study and submit a research proposal through a data-sharing service such as [Vivli](https://vivli.org/resources/requestdata/). Approval and a data-use agreement may be required; analysis may have to remain in an approved secure environment.
 - **A company's unpublished experiments or commercial datasets:** obtain access from that organization under its collaboration or licensing process. Its owner must approve the dataset, allowed uses, and integration method before a connector can be configured.
 
-Zntx Space currently has public-source search, local PDF reading, and user-authorized reference imports. No private firm subscription, controlled participant-data approval, or proprietary SciSpace corpus has been obtained. Do not assume that a library subscription or reference-manager connection permits sending licensed or restricted material to an external AI service.
+scrapeTx currently has public-source search, local PDF reading, and user-authorized reference imports. No private firm subscription, controlled participant-data approval, or proprietary SciSpace corpus has been obtained. Do not assume that a library subscription or reference-manager connection permits sending licensed or restricted material to an external AI service.
 
 ## How Hugging Face could help
 

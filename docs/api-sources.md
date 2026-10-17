@@ -51,7 +51,7 @@ Clickable references prefer a normalized DOI resolver URL, then the supplied HTT
 
 | ID | Original API | Returned records |
 | --- | --- | --- |
-| `arxiv` | [arXiv Atom API](https://info.arxiv.org/help/api/index.html) | Preprint titles, authors, publication dates, supplied abstracts, identifiers, and original arXiv links. Requests are serialized at least three seconds apart per process. Preprints are labelled. |
+| `arxiv` | [arXiv Atom API](https://info.arxiv.org/help/api/index.html) | Preprint titles, authors, publication dates, supplied abstracts, identifiers, and original arXiv links. Requests are serialized at least three seconds apart per process. A transient failure triggers a labelled OpenAlex backup filtered to the arXiv source and validated arXiv record links; ranking and coverage differ. Brief cooldown prevents repeatedly hitting a failing API. Preprints are labelled. |
 | `grants` | [Grants.gov search2](https://www.grants.gov/api/common/search2) | Funding opportunity titles, agencies, status, dates, supplied descriptions, and original opportunity links. |
 | `datasets` | [DataCite REST API](https://support.datacite.org/docs/rest-api) | Dataset records with DOI, title, creators, publication year, supplied descriptions, and source links. A DOI does not establish open-access rights. |
 | `python` | [PyPI JSON API](https://docs.pypi.org/api/json/) | Exact package metadata, publisher summary, version, official links, and licence information. No package is installed or executed. |

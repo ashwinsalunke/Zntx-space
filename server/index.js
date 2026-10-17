@@ -18,6 +18,7 @@ import discoveryRouter from "./discovery.js";
 import exportRouter from "./exports.js";
 import integrationsRouter from "./integrations.js";
 import sourcesRouter from "./sources.js";
+import { createPublicPdfRouter } from "./public-pdf.js";
 import verificationRouter from "./verification.js";
 import { createConnectorVault } from "./connector-vault.js";
 import { createConnectionsRouter } from "./connections.js";
@@ -97,6 +98,7 @@ app.get("/api/config", (req, res) =>
     version: "0.3.0",
   }),
 );
+app.use("/api/source-pdf", createPublicPdfRouter());
 app.use("/api/biomedical", biomedicalRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/discovery", discoveryRouter);

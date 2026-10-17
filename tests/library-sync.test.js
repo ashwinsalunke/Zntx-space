@@ -210,3 +210,53 @@ test("Mendeley partial pages resume without advancing time cursor and hostile li
   assert.equal((await h.request("/mendeley/sync", { method: "POST" })).status, 502);
   assert.equal(h.calls.some((call) => call.url.includes("attacker.invalid")), false);
 });
+
+test("Mendeley PDFs stay workspace scoped and use signed downloads without bearer forwarding", async (t) => {
+  let downloadCalls = 0;
+  const h = await setup(
+    t,
+    async (url, options) => {
+      assert.equal(options.headers.Authorization, "Bearer private-token");
+      if (url.includes("/files?"))
+        return json([
+          {
+            id: "file-123",
+            document_id: "doc-123",
+            mime_type: "application/pdf",
+            size: 30,
+          },
+        ]);
+      assert.equal(url, "https://api.mendeley.com/files/file-123");
+      assert.equal(options.redirect, "manual");
+      return new Response(null, {
+        status: 303,
+        headers: {
+          Location: "https://files.example.org/signed.pdf?signature=private",
+        },
+      });
+    },
+    {
+      loadPdf: async (url) => {
+        downloadCalls++;
+        assert.match(url, /signed.pdf/);
+        return Buffer.from("%PDF-1.7 document");
+      },
+    },
+  );
+  h.secrets.set(h.key(OWNER, "mendeley"), {
+    accessToken: "private-token",
+    expiresAt: Date.now() + 3600000,
+  });
+  assert.equal(
+    (await h.request("/mendeley/documents/doc-123/pdf", { token: OTHER }))
+      .status,
+    403,
+  );
+  const response = await h.request("/mendeley/documents/doc-123/pdf");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /application\/pdf/);
+  assert.equal(await response.text(), "%PDF-1.7 document");
+  assert.equal(downloadCalls, 1);
+});
+
+test('Mendeley refreshes attachment access and explains missing PDFs',async(t)=>{let refreshed=0,downloads=0;const h=await setup(t,async(url,options)=>{if(url.endsWith('/oauth/token')){refreshed++;return json({access_token:'fresh-token',refresh_token:'fresh-refresh',expires_in:3600});}assert.equal(options.headers.Authorization,'Bearer fresh-token');return json([{id:'not-pdf',document_id:'doc-123',mime_type:'text/plain'}]);},{loadPdf:async()=>{downloads++;throw Error('must not download');}});h.secrets.set(h.key(OWNER,'mendeley'),{accessToken:'old-token',refreshToken:'refresh-token',clientId:'1234',clientSecret:'test-secret',expiresAt:Date.now()-1000});const response=await h.request('/mendeley/documents/doc-123/pdf');assert.equal(response.status,404);assert.match((await response.json()).error,/No PDF attachment/);assert.equal(refreshed,1);assert.equal(downloads,0);assert.equal(h.secrets.get(h.key(OWNER,'mendeley')).accessToken,'fresh-token');});

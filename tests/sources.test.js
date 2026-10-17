@@ -17,7 +17,7 @@ const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(
 });
 async function withApi(fetchImpl, fn, options = {}) {
   const app = express();
-  app.use("/api/sources", createSourcesRouter({ fetchImpl, throttle: false, ...options }));
+  app.use("/api/sources", createSourcesRouter({ fetchImpl, throttle: false, arxivFallback: false, ...options }));
   const server = await new Promise((resolve) => {
     const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
   });
@@ -202,3 +202,43 @@ test("oversized bodies and provider timeouts are bounded failures", async () => 
     assert.equal(response.data.code, "PROVIDER_TIMEOUT");
   }, { timeoutMs: 20 });
 });
+
+test("arXiv falls back to explicitly attributed arXiv-only OpenAlex records", async () => {
+  await withApi(
+    async (url) =>
+      url.includes("export.arxiv.org")
+        ? new Response("limited", { status: 429 })
+        : json({
+            meta: { count: 22 },
+            results: [
+              {
+                id: "https://openalex.org/W1",
+                title: "A real preprint",
+                publication_year: 2025,
+                locations: [
+                  { landing_page_url: "http://arxiv.org/abs/2501.12345" },
+                ],
+                authorships: [{ author: { display_name: "Author" } }],
+                abstract_inverted_index: { Source: [0], abstract: [1] },
+              },
+              {
+                title: "Unrelated",
+                locations: [{ landing_page_url: "https://example.org/paper" }],
+              },
+            ],
+          }),
+    async (api) => {
+      const { status, data } = await api("/search?source=arxiv&q=biology");
+      assert.equal(status, 200);
+      assert.equal(data.fallback, true);
+      assert.equal(data.results.length, 1);
+      assert.equal(data.results[0].pdf, "https://arxiv.org/pdf/2501.12345");
+      assert.equal(data.results[0].abstract, "Source abstract");
+      assert.equal(data.retrievalProvider, "OpenAlex");
+      assert.equal(data.total, null);
+    },
+    { arxivFallback: true },
+  );
+});
+
+test('arXiv cooldown avoids repeatedly querying a failing primary API',async()=>{let primaryCalls=0;await withApi(async(url)=>{if(url.includes('export.arxiv.org')){primaryCalls++;return new Response('limited',{status:429});}return json({results:[]});},async(api)=>{await api('/search?source=arxiv&q=first');await api('/search?source=arxiv&q=second');assert.equal(primaryCalls,1);},{arxivFallback:true});});

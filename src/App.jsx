@@ -1,3 +1,4 @@
+import SourcePdfReader, { pdfReaderLink } from "./SourcePdfReader.jsx";
 import React, {
   useState,
   useEffect,
@@ -246,7 +247,7 @@ export default function App() {
     setMobile(false);
     document.querySelector("main")?.scrollTo(0, 0);
     window.scrollTo(0, 0);
-    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation" }[location.pathname] || "Research workspace"} · scrapeTx`;
+    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation", "/read-pdf": "PDF Reader" }[location.pathname] || "Research workspace"} · scrapeTx`;
   }, [location.pathname]);
   const savePaper = async (p) => {
     try {
@@ -287,7 +288,7 @@ export default function App() {
     {
       "/library": "My Library",
       "/diagrams": "Diagrams",
-      "/presentation": "Presentation",
+      "/presentation": "Presentation", "/read-pdf": "PDF Reader",
     }[location.pathname] ||
     "Research workspace";
   return (
@@ -453,6 +454,7 @@ export default function App() {
               <Route path="/agents" element={<AgentGallery />} />
               <Route path="/automations" element={<AutomationWorkspace />} />
               <Route path="/templates" element={<TemplatesWorkspace />} />
+              <Route path="/read-pdf" element={<SourcePdfReader />} />
               <Route path="/chat-pdf" element={<PdfWorkspace />} />
               <Route path="/extract-data" element={<PdfWorkspace extract />} />
               <Route path="/ai-writer" element={<Writer />} />
@@ -1308,10 +1310,8 @@ function PaperDetail({ paper: p, onClose }) {
           <a className="btn" href={p.url} target="_blank" rel="noreferrer">
             Open original <ExternalLink size={14} />
           </a>
-          {p.pdf && (
-            <a className="btn" href={p.pdf} target="_blank" rel="noreferrer">
-              Read PDF <ExternalLink size={14} />
-            </a>
+          {(p.pdf || p.librarySync?.provider === "mendeley") && (
+            <Link className="btn" to={pdfReaderLink(p)} onClick={onClose}>Read PDF in app <BookOpen size={14}/></Link>
           )}
           {p.pmcid && (
             <Button
@@ -2209,19 +2209,14 @@ function TextTool({ kind }) {
 }
 function DiagramTool({ slides = false }) {
   const [params] = useSearchParams();
-  const { notify } = useApp();
+  const { notify, library } = useApp();
+  const [selectedEvidence, setSelectedEvidence] = useState([]);
+  const [requestedEvidence, setRequestedEvidence] = useState([]);
+  const [requestRevision, setRequestRevision] = useState(0);
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [done, setDone] = useState("");
   const [step, setStep] = useState(0);
   const [edits, setEdits] = useState({});
-  const steps = [
-    "Research question",
-    "Literature search",
-    "Evidence screening",
-    "Data extraction",
-    "Synthesis & discussion",
-    "Conclusion",
-  ];
   const deck = [
     "Research question",
     "Why it matters",
@@ -2245,14 +2240,18 @@ function DiagramTool({ slides = false }) {
         <p>
           {slides
             ? "Build an editable presentation outline."
-            : "Create a research workflow diagram from your topic."}
+            : "Create a visual flowchart or scientific process diagram. Download it as PNG or SVG."}
         </p>
       </div>
       <form
         className="search-form"
         onSubmit={(e) => {
           e.preventDefault();
-          setDone(topic);
+          setDone(topic.trim());
+          setRequestedEvidence(
+            library.filter((p) => selectedEvidence.includes(p.id)).slice(0, 6),
+          );
+          setRequestRevision((n) => n + 1);
           setEdits({});
           setStep(0);
         }}
@@ -2267,30 +2266,64 @@ function DiagramTool({ slides = false }) {
           Create {slides ? "outline" : "diagram"} <ArrowRight size={15} />
         </Button>
       </form>
+      {!slides && library.some((p) => p.abstract) && (
+        <details className="diagram-source-picker">
+          <summary>Use saved research sources (optional)</summary>
+          <p>
+            Select up to six sources. Their supplied abstracts are sent with
+            your diagram request.
+          </p>
+          {library
+            .filter((p) => p.abstract)
+            .slice(0, 80)
+            .map((p) => (
+              <label key={p.id}>
+                <input
+                  type="checkbox"
+                  checked={selectedEvidence.includes(p.id)}
+                  disabled={
+                    !selectedEvidence.includes(p.id) &&
+                    selectedEvidence.length >= 6
+                  }
+                  onChange={(e) =>
+                    setSelectedEvidence((ids) =>
+                      e.target.checked
+                        ? [...ids, p.id]
+                        : ids.filter((id) => id !== p.id),
+                    )
+                  }
+                />
+                <span>{p.title}</span>
+              </label>
+            ))}
+        </details>
+      )}
       {done ? (
         <div className="visual-result">
           <div className="section-heading">
             <h2>{done}</h2>
-            <Button
-              icon={Download}
-              onClick={() =>
-                download(
-                  slides ? "presentation-outline.md" : "research-workflow.md",
-                  `# ${done}\n\n` +
-                    (slides ? deck : steps)
-                      .map(
-                        (t, i) =>
-                          `## ${i + 1}. ${t}\n${edits[i] || `Add your ${t.toLowerCase()} for ${done}.`}`,
-                      )
-                      .join("\n\n"),
-                  "text/markdown",
-                )
-              }
-            >
-              Export outline
-            </Button>
+            {slides && (
+              <Button
+                icon={Download}
+                onClick={() =>
+                  download(
+                    slides ? "presentation-outline.md" : "research-workflow.md",
+                    `# ${done}\n\n` +
+                      deck
+                        .map(
+                          (t, i) =>
+                            `## ${i + 1}. ${t}\n${edits[i] || `Add your ${t.toLowerCase()} for ${done}.`}`,
+                        )
+                        .join("\n\n"),
+                    "text/markdown",
+                  )
+                }
+              >
+                Export outline
+              </Button>
+            )}
           </div>
-          <span className="tag">Editable template</span>
+          {slides && <span className="tag">Editable template</span>}
           {slides && (
             <Button
               icon={Download}
@@ -2314,16 +2347,19 @@ function DiagramTool({ slides = false }) {
             </Button>
           )}
           <AiPanel
+            key={requestRevision}
             task={slides ? "draft" : "diagram"}
+            evidence={slides ? [] : requestedEvidence}
             prompt={
               slides
                 ? `Create a six-slide research presentation outline about ${done}. Do not invent results or references.`
-                : `Create a concept map for researching ${done}, showing related concepts and workflow relationships. Mark unverified content.`
+                : `Create the diagram requested by the user: ${done}. Show the actual process, inputs, transformations and outputs, not steps for researching the topic. Use concise readable labels, meaningful directed connections, and scientifically appropriate relationships. Aim for 6–12 nodes unless the request needs more.`
             }
+            autoGenerate={!slides}
             label={
               slides
                 ? "Generate slide outline with AI"
-                : "Generate concept map with AI"
+                : "Generate scientific diagram"
             }
           />
           {slides ? (
@@ -2359,27 +2395,7 @@ function DiagramTool({ slides = false }) {
                 </footer>
               </div>
             </div>
-          ) : (
-            <div className="workflow-diagram">
-              {steps.map((s, i) => (
-                <React.Fragment key={s}>
-                  <div>
-                    <span>0{i + 1}</span>
-                    <h3>{s}</h3>
-                    <input
-                      aria-label={"Note for " + s}
-                      value={edits[i] || ""}
-                      onChange={(e) =>
-                        setEdits({ ...edits, [i]: e.target.value })
-                      }
-                      placeholder="Add a note…"
-                    />
-                  </div>
-                  {i < steps.length - 1 && <ArrowRight size={20} />}
-                </React.Fragment>
-              ))}
-            </div>
-          )}
+          ) : null}
           <p className="tool-note">
             A starting structure for your own research. Add verified findings
             and sources before presenting.

@@ -231,6 +231,64 @@ export function sourceCatalog() {
   ];
 }
 
+export function normalizeArxivIndex(payload) {
+  if (!Array.isArray(payload?.results))
+    throw new SourceError(
+      "Unreadable backup index response.",
+      "SOURCE_INVALID_RESPONSE",
+    );
+  const seen = new Set(),
+    results = [];
+  for (const item of payload.results) {
+    const location = (item.locations || []).find((location) => {
+      try {
+        const u = new URL(location.landing_page_url);
+        return (
+          ["arxiv.org", "export.arxiv.org"].includes(u.hostname) &&
+          /^\/abs\/(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?$/i.test(
+            u.pathname,
+          )
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (!location || !item.title) continue;
+    const arxivId = new URL(location.landing_page_url).pathname.slice(5);
+    if (seen.has(arxivId)) continue;
+    seen.add(arxivId);
+    const words = [];
+    for (const [word, positions] of Object.entries(
+      item.abstract_inverted_index || {},
+    )) {
+      if (!Array.isArray(positions)) continue;
+      for (const position of positions)
+        if (Number.isInteger(position) && position >= 0 && position < 12000)
+          words[position] = word;
+    }
+    results.push({
+      id: `arxiv-${arxivId}`,
+      arxivId,
+      title: text(item.title, 3000),
+      url: `https://arxiv.org/abs/${arxivId}`,
+      pdf: `https://arxiv.org/pdf/${arxivId}`,
+      authors: (item.authorships || [])
+        .map((a) => text(a.author?.display_name, 300))
+        .filter(Boolean),
+      year: item.publication_year || null,
+      abstract: text(words.filter(Boolean).join(" "), 30000),
+      doi: "",
+      type: "preprint",
+      source: "arXiv via OpenAlex",
+      citations: null,
+      metadataSource: safeSourceUrl(item.id),
+      openAccess: true,
+    });
+  }
+  // Counts refer to the backup index, not arXiv's own result count.
+  return { results, total: null, indexMatches: payload.meta?.count ?? null };
+}
+
 export function createSourcesRouter({
   fetchImpl = globalThis.fetch,
   timeoutMs = 18000,
@@ -238,33 +296,55 @@ export function createSourcesRouter({
   cacheTtlMs = 300000,
   maxCacheEntries = 80,
   throttle = true,
+  arxivFallback = true,
   maxPending = 10,
 } = {}) {
   const router = express.Router();
   const cache = new Map();
   const pending = new Map();
   const lanes = new Map();
+  let arxivRetryAt = 0;
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   async function limited(source, task) {
     if (!throttle) return task();
-    const lane = lanes.get(source) || { tail: Promise.resolve(), last: 0, queued: 0 };
+    const lane = lanes.get(source) || {
+      tail: Promise.resolve(),
+      last: 0,
+      queued: 0,
+    };
     lanes.set(source, lane);
-    if (lane.queued >= 5) throw new SourceError("This source is busy. Please try again shortly.", "PROVIDER_BUSY", 503);
+    if (lane.queued >= 5)
+      throw new SourceError(
+        "This source is busy. Please try again shortly.",
+        "PROVIDER_BUSY",
+        503,
+      );
     lane.queued++;
     const call = lane.tail.then(async () => {
-      await sleep(Math.max(0, lane.last + (source === "arxiv" ? 3100 : 250) - Date.now()));
+      await sleep(
+        Math.max(0, lane.last + (source === "arxiv" ? 3100 : 250) - Date.now()),
+      );
       lane.last = Date.now();
       return task();
     });
     lane.tail = call.catch(() => {});
-    try { return await call; } finally { lane.queued--; }
+    try {
+      return await call;
+    } finally {
+      lane.queued--;
+    }
   }
-  async function upstream(source, url, init = {}) {
+  async function upstream(source, url, init = {}, jsonResponse = false) {
     return limited(source, async () => {
       try {
         const response = await fetchImpl(url, {
           ...init,
-          headers: { Accept: source === "arxiv" ? "application/atom+xml" : "application/json", "User-Agent": "scrapeTx/0.3 (public research metadata)", ...init.headers },
+          headers: {
+            Accept:
+              source === "arxiv" ? "application/atom+xml" : "application/json",
+            "User-Agent": "scrapeTx/0.3 (public research metadata)",
+            ...init.headers,
+          },
           signal: AbortSignal.timeout(timeoutMs),
           redirect: "error",
         });
@@ -276,18 +356,32 @@ export function createSourcesRouter({
           await response.body?.cancel();
           const error = new SourceError(
             `${PROVIDERS[source].name} returned HTTP ${response.status}. Try again later.`,
-            response.status === 429 ? "PROVIDER_RATE_LIMIT" : "PROVIDER_HTTP_ERROR",
+            response.status === 429
+              ? "PROVIDER_RATE_LIMIT"
+              : "PROVIDER_HTTP_ERROR",
             response.status === 429 ? 503 : 502,
           );
-          if (response.status === 429) error.retryAfter = Math.max(1, Math.min(60, Number(response.headers.get("retry-after")) || 30));
+          if (response.status === 429)
+            error.retryAfter = Math.max(
+              1,
+              Math.min(60, Number(response.headers.get("retry-after")) || 30),
+            );
           throw error;
         }
         if (Number(response.headers.get("content-length")) > maxBytes) {
           await response.body?.cancel();
-          throw new SourceError("The provider response exceeds the metadata size limit.", "SOURCE_TOO_LARGE", 413);
+          throw new SourceError(
+            "The provider response exceeds the metadata size limit.",
+            "SOURCE_TOO_LARGE",
+            413,
+          );
         }
         const reader = response.body?.getReader();
-        if (!reader) throw new SourceError("The provider response was empty.", "SOURCE_INVALID_RESPONSE");
+        if (!reader)
+          throw new SourceError(
+            "The provider response was empty.",
+            "SOURCE_INVALID_RESPONSE",
+          );
         const decoder = new TextDecoder();
         let length = 0;
         let body = "";
@@ -297,18 +391,31 @@ export function createSourcesRouter({
           length += chunk.value.byteLength;
           if (length > maxBytes) {
             await reader.cancel();
-            throw new SourceError("The provider response exceeds the metadata size limit.", "SOURCE_TOO_LARGE", 413);
+            throw new SourceError(
+              "The provider response exceeds the metadata size limit.",
+              "SOURCE_TOO_LARGE",
+              413,
+            );
           }
           body += decoder.decode(chunk.value, { stream: true });
         }
         body += decoder.decode();
-        if (source === "arxiv") return body;
-        try { return JSON.parse(body); } catch { throw new SourceError("The provider returned unreadable JSON metadata.", "SOURCE_INVALID_RESPONSE"); }
+        if (source === "arxiv" && !jsonResponse) return body;
+        try {
+          return JSON.parse(body);
+        } catch {
+          throw new SourceError(
+            "The provider returned unreadable JSON metadata.",
+            "SOURCE_INVALID_RESPONSE",
+          );
+        }
       } catch (error) {
         if (error instanceof SourceError) throw error;
         const timedOut = ["AbortError", "TimeoutError"].includes(error.name);
         throw new SourceError(
-          timedOut ? `${PROVIDERS[source].name} timed out. Try again later.` : `${PROVIDERS[source].name} could not be reached. Try again later.`,
+          timedOut
+            ? `${PROVIDERS[source].name} timed out. Try again later.`
+            : `${PROVIDERS[source].name} could not be reached. Try again later.`,
           timedOut ? "PROVIDER_TIMEOUT" : "PROVIDER_UNAVAILABLE",
         );
       }
@@ -321,53 +428,212 @@ export function createSourcesRouter({
       const url = new URL("https://export.arxiv.org/api/query");
       // Treat ordinary input as words, rather than accepting arbitrary query syntax.
       const words = query.match(/[\p{L}\p{N}]+(?:[-.][\p{L}\p{N}]+)*/gu) || [];
-      if (!words.length) throw new SourceError("Enter a research topic for arXiv.", "INVALID_QUERY", 400);
-      url.search = new URLSearchParams({ search_query: words.slice(0, 35).map((word) => `all:${word}`).join(" AND "), start: "0", max_results: "30", sortBy: "relevance" });
-      data = parseArxiv(await upstream(source, url.href));
-      warnings = ["Preprints may not have undergone peer review. Metadata and available abstracts are returned; full articles are not downloaded."];
+      if (!words.length)
+        throw new SourceError(
+          "Enter a research topic for arXiv.",
+          "INVALID_QUERY",
+          400,
+        );
+      url.search = new URLSearchParams({
+        search_query: words
+          .slice(0, 35)
+          .map((word) => `all:${word}`)
+          .join(" AND "),
+        start: "0",
+        max_results: "30",
+        sortBy: "relevance",
+      });
+      warnings = [
+        "Preprints may not have undergone peer review. Metadata and available abstracts are returned; full articles are not downloaded.",
+      ];
+      try {
+        if (arxivRetryAt > Date.now())
+          throw new SourceError(
+            "The arXiv API is cooling down after a transient failure.",
+            "PROVIDER_UNAVAILABLE",
+          );
+        data = parseArxiv(await upstream(source, url.href));
+      } catch (error) {
+        if (
+          !arxivFallback ||
+          ![
+            "PROVIDER_TIMEOUT",
+            "PROVIDER_UNAVAILABLE",
+            "PROVIDER_RATE_LIMIT",
+            "PROVIDER_HTTP_ERROR",
+          ].includes(error.code)
+        )
+          throw error;
+        if (arxivRetryAt <= Date.now())
+          arxivRetryAt =
+            Date.now() +
+            (error.code === "PROVIDER_RATE_LIMIT"
+              ? (error.retryAfter || 30) * 1000
+              : 30000);
+        const fallback = new URL("https://api.openalex.org/works");
+        fallback.search = new URLSearchParams({
+          search: query,
+          filter: "locations.source.id:S4306400194",
+          per_page: "30",
+        });
+        try {
+          data = normalizeArxivIndex(
+            await upstream(
+              source,
+              fallback.href,
+              { headers: { Accept: "application/json" } },
+              true,
+            ),
+          );
+        } catch {
+          throw new SourceError(
+            "arXiv and its backup index are unavailable. Please retry shortly or open arXiv directly.",
+            "PROVIDER_UNAVAILABLE",
+          );
+        }
+        warnings.unshift(
+          "The arXiv API is temporarily unavailable. Showing arXiv-linked records retrieved from OpenAlex; index coverage, ranking, abstracts and dates may differ from arXiv. Open the original preprint to verify its version.",
+        );
+        data.retrievalProvider = "OpenAlex";
+        data.fallback = true;
+      }
     } else if (source === "grants") {
-      data = normalizeGrants(await upstream(source, "https://api.grants.gov/v1/api/search2", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: 30, keyword: query, oppStatuses: "forecasted|posted", startRecordNum: 0 }),
-      }));
-      warnings = ["Only forecasted and posted US opportunities are searched. The summary API does not supply abstracts; open an opportunity for its current eligibility, funding, and deadlines."];
+      data = normalizeGrants(
+        await upstream(source, "https://api.grants.gov/v1/api/search2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rows: 30,
+            keyword: query,
+            oppStatuses: "forecasted|posted",
+            startRecordNum: 0,
+          }),
+        }),
+      );
+      warnings = [
+        "Only forecasted and posted US opportunities are searched. The summary API does not supply abstracts; open an opportunity for its current eligibility, funding, and deadlines.",
+      ];
     } else if (source === "datasets") {
       const url = new URL("https://api.datacite.org/dois");
-      url.search = new URLSearchParams({ query, "resource-type-id": "dataset", "page[size]": "30" });
+      url.search = new URLSearchParams({
+        query,
+        "resource-type-id": "dataset",
+        "page[size]": "30",
+      });
       data = normalizeDatasets(await upstream(source, url.href));
-      warnings = ["DataCite returns repository-supplied dataset metadata. A findable DOI is not verification of dataset quality or unrestricted data access. Check each source and license."];
+      warnings = [
+        "DataCite returns repository-supplied dataset metadata. A findable DOI is not verification of dataset quality or unrestricted data access. Check each source and license.",
+      ];
     } else {
       const name = packageName(query);
-      if (!name) throw new SourceError("Enter one exact Python package name, for example rdkit, pandas, or biopython.", "EXACT_PACKAGE_REQUIRED", 400);
-      const raw = await upstream(source, `https://pypi.org/pypi/${encodeURIComponent(name)}/json`);
-      data = raw === null ? { results: [], total: 0 } : normalizePython(raw, name);
-      warnings = ["Exact package lookup only. Metadata are supplied by package publishers; no package is installed or executed, and package suitability is not independently verified."];
+      if (!name)
+        throw new SourceError(
+          "Enter one exact Python package name, for example rdkit, pandas, or biopython.",
+          "EXACT_PACKAGE_REQUIRED",
+          400,
+        );
+      const raw = await upstream(
+        source,
+        `https://pypi.org/pypi/${encodeURIComponent(name)}/json`,
+      );
+      data =
+        raw === null ? { results: [], total: 0 } : normalizePython(raw, name);
+      warnings = [
+        "Exact package lookup only. Metadata are supplied by package publishers; no package is installed or executed, and package suitability is not independently verified.",
+      ];
     }
-    return { ...data, query, source: PROVIDERS[source].name, sourceId: source, mode: "api", retrievedAt: new Date().toISOString(), warnings, documentation: PROVIDERS[source].docs };
+    return {
+      ...data,
+      query,
+      source: PROVIDERS[source].name,
+      sourceId: source,
+      mode: "api",
+      retrievedAt: new Date().toISOString(),
+      warnings,
+      documentation: PROVIDERS[source].docs,
+    };
   }
-  router.get("/status", (_req, res) => res.json({ sources: sourceCatalog(), retrievedAt: new Date().toISOString() }));
+  router.get("/status", (_req, res) =>
+    res.json({
+      sources: sourceCatalog(),
+      retrievedAt: new Date().toISOString(),
+    }),
+  );
   router.get("/search", async (req, res) => {
     const { source, q } = req.query;
-    if (typeof source !== "string" || typeof q !== "string" || !q.trim() || q.length > 300 || /[\u0000-\u001f\u007f]/.test(q))
-      return res.status(400).json({ error: "Choose a source and enter a query of 1–300 characters.", code: "INVALID_QUERY" });
+    if (
+      typeof source !== "string" ||
+      typeof q !== "string" ||
+      !q.trim() ||
+      q.length > 300 ||
+      /[\u0000-\u001f\u007f]/.test(q)
+    )
+      return res
+        .status(400)
+        .json({
+          error: "Choose a source and enter a query of 1–300 characters.",
+          code: "INVALID_QUERY",
+        });
     const query = q.trim();
     const external = externalSearchUrl(source, query);
-    if (external) return res.json({ results: [], total: 0, source: sourceCatalog().find((s) => s.id === source).name, sourceId: source, query, mode: "external", externalSearchUrl: external, retrievedAt: new Date().toISOString(), warnings: ["This opens an external search. No results have been retrieved, scraped, or supplied to the AI."] });
-    if (!Object.hasOwn(PROVIDERS, source)) return res.status(400).json({ error: "This source uses its own search or connector. Check source status for its supported pathway.", code: "UNSUPPORTED_SOURCE" });
+    if (external)
+      return res.json({
+        results: [],
+        total: 0,
+        source: sourceCatalog().find((s) => s.id === source).name,
+        sourceId: source,
+        query,
+        mode: "external",
+        externalSearchUrl: external,
+        retrievedAt: new Date().toISOString(),
+        warnings: [
+          "This opens an external search. No results have been retrieved, scraped, or supplied to the AI.",
+        ],
+      });
+    if (!Object.hasOwn(PROVIDERS, source))
+      return res
+        .status(400)
+        .json({
+          error:
+            "This source uses its own search or connector. Check source status for its supported pathway.",
+          code: "UNSUPPORTED_SOURCE",
+        });
     const key = `${source}:${query}`;
     const stored = cache.get(key);
-    if (stored && stored.expires > Date.now()) return res.json({ ...stored.value, cached: true });
-    if (pending.size >= maxPending && !pending.has(key)) return res.status(503).json({ error: "Research sources are busy. Try again shortly.", code: "PROVIDER_BUSY" });
+    if (stored && stored.expires > Date.now())
+      return res.json({ ...stored.value, cached: true });
+    if (pending.size >= maxPending && !pending.has(key))
+      return res
+        .status(503)
+        .json({
+          error: "Research sources are busy. Try again shortly.",
+          code: "PROVIDER_BUSY",
+        });
     if (!pending.has(key)) {
-      const task = search(source, query).then((value) => {
-        if (cache.size >= maxCacheEntries) cache.delete(cache.keys().next().value);
-        cache.set(key, { value, expires: Date.now() + cacheTtlMs });
-        return value;
-      }).finally(() => pending.delete(key));
+      const task = search(source, query)
+        .then((value) => {
+          if (cache.size >= maxCacheEntries)
+            cache.delete(cache.keys().next().value);
+          cache.set(key, { value, expires: Date.now() + cacheTtlMs });
+          return value;
+        })
+        .finally(() => pending.delete(key));
       pending.set(key, task);
     }
-    try { res.json(await pending.get(key)); } catch (error) {
+    try {
+      res.json(await pending.get(key));
+    } catch (error) {
       if (error.retryAfter) res.set("Retry-After", String(error.retryAfter));
-      res.status(error.status || 502).json({ error: error instanceof SourceError ? error.message : "The source could not be read. Try again later.", code: error.code || "SOURCE_INVALID_RESPONSE", source: PROVIDERS[source].name });
+      res
+        .status(error.status || 502)
+        .json({
+          error:
+            error instanceof SourceError
+              ? error.message
+              : "The source could not be read. Try again later.",
+          code: error.code || "SOURCE_INVALID_RESPONSE",
+          source: PROVIDERS[source].name,
+        });
     }
   });
   return router;

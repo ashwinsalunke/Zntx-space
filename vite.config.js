@@ -5,6 +5,7 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: { ignored: ["**/artifacts/**", "**/.data/**"] },
     proxy: { "/api": "http://127.0.0.1:5180" },
   },
   preview: { port: 4173 },
