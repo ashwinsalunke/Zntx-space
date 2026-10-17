@@ -1202,3 +1202,30 @@ test("citation correction times out under the original signal and releases its c
   );
   assert.equal(calls, 3);
 });
+
+test('research guide is grounded in app capabilities with structured actions, not evidence synthesis', async t => {
+  let captured;
+  const guide = { reply: 'I can help you find papers, compare their findings, and create a cited literature draft.', steps: ['Search for bacteria papers.', 'Compare the available evidence.'], topic: 'bacteria resistance', question: 'Would you like a review or slides?', suggestions: ['A literature review', 'Slides'], actions: ['papers', 'workflow'] };
+  const service = await serve(t, { env: googleEnv, fetchImpl: async (_url, options) => {
+    captured = JSON.parse(options.body);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(guide) }] }, finishReason: 'STOP' }] }));
+  } });
+  const response = await service.post({ task: 'guide', prompt: 'I want to research bacteria', evidence: [] });
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.deepEqual(JSON.parse(result.text), guide);
+  assert.deepEqual(result.citations, []);
+  assert.match(captured.systemInstruction.parts[0].text, /ONLY this capability catalogue/);
+  assert.match(captured.systemInstruction.parts[0].text, /Do not say you searched/);
+  assert.match(captured.systemInstruction.parts[0].text, /not APIs/);
+  assert.equal(captured.generationConfig.responseJsonSchema.properties.actions.items.enum.includes('papers'), true);
+  assert.match(result.warnings[0], /no literature search/);
+  assert.equal((await service.post({ task: 'guide', prompt: 'Guide me', evidence })).status, 400);
+});
+
+test('research guide refuses invented navigation from the AI', async t => {
+  const service = await serve(t, { env, fetchImpl: async () => completion(JSON.stringify({ reply: 'Click here', topic: 'bacteria', question: '', suggestions: [], actions: ['unlimited-lab-automation'] })) });
+  const response = await service.post({ task: 'guide', prompt: 'Guide me' });
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).code, 'INVALID_AI_OUTPUT');
+});

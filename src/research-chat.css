@@ -365,3 +365,23 @@
     font-size: 10px;
   }
 }
+
+/* Conversational guidance stays in the research workspace. */
+.research-guide { border: 1px solid var(--line, #e4e2dd); border-radius: 12px; padding: 24px; background: var(--surface); color: var(--text); overflow-wrap: anywhere; }
+.research-guide-label { display: flex; align-items: center; gap: 10px; font-size: 15px; margin-bottom: 16px; }
+.research-guide .research-text { font-size: 16px; line-height: 1.7; }
+.research-guide-actions, .research-guide-suggestions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.research-guide-actions .btn, .research-guide-suggestions .btn { min-height: 44px; white-space: normal; text-align: left; }
+.research-guide-actions .btn:first-child { background: var(--text); color: var(--surface); }
+.research-guide-question { font-size: 17px; font-weight: 700; margin-top: 24px; }
+.research-guide-note { display: block; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.research-conversation-mode { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 10px; }
+.research-conversation-mode button { border: 1px solid var(--line, #e4e2dd); border-radius: 8px; padding: 10px 16px; min-height: 44px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.research-conversation-mode button[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+.research-conversation-mode button:disabled { opacity: .55; cursor: wait; }
+.research-guide a:focus-visible, .research-guide button:focus-visible, .research-conversation-mode button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+@media (max-width: 600px) { .research-guide { padding: 18px; } .research-guide-actions { flex-direction: column; } }
+
+.research-guide-steps { padding-left: 24px; margin: 20px 0; font-size: 16px; line-height: 1.7; }
+.research-guide-steps li { padding: 4px 0 4px 6px; }
+.research-guide-steps li::marker { font-weight: 700; }

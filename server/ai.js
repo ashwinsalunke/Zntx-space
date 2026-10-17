@@ -1,4 +1,5 @@
 import express from "express";
+import { GUIDE_INSTRUCTIONS } from "../shared/research-guide.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { WORKFLOW_SCHEMAS, validateWorkflowOutput } from "./workflow-output.js";
 
@@ -12,6 +13,7 @@ const PUBLIC_IDENTITY = Object.freeze({
 });
 
 export const AI_TASKS = Object.freeze([
+  "guide",
   "synthesis",
   "draft",
   "paraphrase",
@@ -163,6 +165,8 @@ export function validateAiRequest(body) {
   if (body.evidence !== undefined && !Array.isArray(body.evidence))
     throw new AiError(400, "INVALID_INPUT", "evidence must be an array.");
   const input = body.evidence || [];
+  if (task === "guide" && input.length)
+    throw new AiError(400, "INVALID_INPUT", "Use research synthesis for evidence; the guide helps plan your next step.");
   if (input.length > LIMITS.evidence)
     throw new AiError(
       400,
@@ -238,6 +242,7 @@ export function validateAiRequest(body) {
 }
 
 const TASK_INSTRUCTIONS = {
+  guide: GUIDE_INSTRUCTIONS,
   "workflow-plan":
     "Return only JSON with query (a concise scholarly search query), title (a working research title), and note (state that this is planning, not source-verified findings). Do not answer the question or claim findings. No Markdown wrapper or introductory prose.",
   "workflow-paper":
@@ -259,6 +264,10 @@ const TASK_INSTRUCTIONS = {
 };
 
 function messagesFor({ task, prompt, evidence, citationCorrection = false }) {
+  if (task === "guide") return [
+    { role: "system", content: `You are ${AI_ASSISTANT_NAME}. ${GUIDE_INSTRUCTIONS}` },
+    { role: "user", content: prompt },
+  ];
   const markers = evidence.map((source) => `[[cite:${source.id}]]`).join(", ");
   return [
     {
@@ -729,7 +738,7 @@ export function createAiRouter({
           return { id, title, url };
         }),
         generatedAt: new Date().toISOString(),
-        warnings: [
+        warnings: input.task === "guide" ? ["Research guidance; no literature search has been performed for this reply."] : [
           "AI-generated research support; verify claims and citations against the original sources.",
           ...(corrected
             ? [

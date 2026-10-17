@@ -1,3 +1,4 @@
+import { wantsResearchGuide } from "../shared/research-guide.js";
 import { ImageGenerator } from "./GeneratedImage.jsx";
 import SourcePdfReader, { pdfReaderLink } from "./SourcePdfReader.jsx";
 import React, {
@@ -447,8 +448,8 @@ export default function App() {
               <Route path="/projects" element={<ResearchProjects />} />
               <Route path="/research-workflow" element={<ResearchWorkflow />} />
               <Route path="/integrations" element={<Integrations />} />
-              <Route path="/chat" element={<ResearchChat />} />
-              <Route path="/chat/:id" element={<ResearchChat />} />
+              <Route path="/chat" element={<ResearchChat key={location.pathname + location.search} />} />
+              <Route path="/chat/:id" element={<ResearchChat key={location.pathname} />} />
               <Route path="/library" element={<LibraryWorkspace />} />
               <Route path="/sources/:sourceId" element={<SourceWorkspace />} />
               <Route path="/agents" element={<AgentGallery />} />
@@ -810,7 +811,7 @@ function ResearchPage() {
   const [compare, setCompare] = useState(false);
   const [paper, setPaper] = useState(null);
   const [retry, setRetry] = useState(0);
-  const { history, refreshHistory, notify } = useApp();
+  const { history, refreshHistory, notify, navigate } = useApp();
   useEffect(() => {
     setQ(query);
     setSource(provider);
@@ -852,6 +853,7 @@ function ResearchPage() {
   }, [query, provider, retry, filterParam]);
   const search = () => {
     if (!q.trim()) return;
+    if (wantsResearchGuide(q)) { navigate("/chat?guide=1&q=" + encodeURIComponent(q.trim())); return; }
     if (q.trim() === query && source === provider) setRetry((v) => v + 1);
     else setParams({ q: q.trim(), source });
   };

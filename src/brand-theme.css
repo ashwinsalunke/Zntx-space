@@ -346,3 +346,9 @@ button:disabled { transform: none !important; box-shadow: none !important; }
   *, *::before, *::after { transition: none !important; animation: none !important; }
   .btn:hover, .icon-btn:hover, .source-shortcut:hover, .home-tool-row:hover, .home-watch-action, .sidebar-connections:hover, .workspace-avatar:hover, .source-rail-controls button:hover, .app :is(.workflow-primary, .workflow-secondary, .rw-primary, .rw-secondary, .lw-primary, .lw-secondary, .mcp-server-row, .ec-links > a):hover { transform: none !important; }
 }
+
+.home-guide-start { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 10px 0 20px; text-align: left; }
+.home-guide-start a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; transition: opacity 160ms ease; }
+.home-guide-start a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.home-guide-start a:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .home-guide-start a { transition: none; } }

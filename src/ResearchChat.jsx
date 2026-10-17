@@ -1,3 +1,5 @@
+import { wantsResearchGuide, guidePrompt, validateGuide } from "../shared/research-guide.js";
+import ResearchGuideReply from "./ResearchGuideReply.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import {
   useParams,
@@ -39,6 +41,8 @@ export default function ResearchChat() {
   const [query, setQuery] = useState(params.get("q") || "");
   const [turns, setTurns] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [guiding, setGuiding] = useState(false);
+  const [conversationMode, setConversationMode] = useState(params.get("guide") === "1" ? "guide" : "auto");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [history, setHistory] = useState([]);
@@ -47,6 +51,7 @@ export default function ResearchChat() {
   const [retrying, setRetrying] = useState(false);
   const started = useRef(false);
   const current = useRef(null);
+  const pendingQuery = useRef("");
   useEffect(() => {
     api("/api/records/chats")
       .then(setHistory)
@@ -69,6 +74,8 @@ export default function ResearchChat() {
             .map((t) => notes.find((n) => n.id === t))
             .filter(Boolean),
         );
+        const lastTurn = notes.find(n => n.id === chat.turnIds?.at(-1));
+        setConversationMode(lastTurn?.guide ? "guide" : "auto");
         setHistory(chats);
       })
       .catch((e) => active && setError(e.message))
@@ -108,25 +115,31 @@ export default function ResearchChat() {
       );
     }
   }
-  async function search(value = query) {
+  async function search(value = query, modeOverride) {
     if (!value.trim() || busy) return;
     setBusy(true);
     setError("");
     setQuery("");
+    pendingQuery.current = value;
     const controller = new AbortController();
     current.current = controller;
+    const selectedMode = modeOverride || conversationMode;
+    const isGuide = selectedMode === "guide" || (selectedMode === "auto" && wantsResearchGuide(value));
+    setGuiding(isGuide);
     try {
-      const data = await api(
-        "/api/discovery/search?q=" + encodeURIComponent(value.trim()),
-        { signal: controller.signal },
-      );
+      const data = isGuide
+        ? await api("/api/ai/generate", { method: "POST", body: JSON.stringify({ task: "guide", prompt: guidePrompt(value.trim(), turns), evidence: [] }), signal: controller.signal })
+        : await api("/api/discovery/search?q=" + encodeURIComponent(value.trim()), { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      const guide = isGuide ? validateGuide(JSON.parse(data.text)) : null;
+      if (isGuide) setConversationMode("guide");
       const turn = {
         id: crypto.randomUUID(),
         type: "research-chat-turn",
         chatId: id,
         query: value.trim(),
         mode: verified ? "verified" : "deep",
-        result: data,
+        ...(guide ? { guide } : { result: data }),
         createdAt: new Date().toISOString(),
       };
       const next = [...turns, turn];
@@ -145,7 +158,7 @@ export default function ResearchChat() {
       }
     } catch (e) {
       if (e.name !== "AbortError") {
-        setError(e.message);
+        setError(isGuide ? "Your research guide could not reply just now. Your message is kept below; please try again, or switch to Find papers to search directly." : e.message);
         setQuery(value);
       }
     } finally {
@@ -192,7 +205,7 @@ export default function ResearchChat() {
       setRetrying(false);
     }
   }
-  const notes = (turn) =>
+  const notes = (turn) => turn.guide ? `# ${turn.query}\n\n${turn.guide.reply}\n\n${(turn.guide.steps || []).map((step, i) => `${i + 1}. ${step}`).join("\n")}\n\n${turn.guide.question}\n\nResearch planning; no sources retrieved for this reply.` :
     `# ${turn.query}\n\nRetrieved ${turn.result.retrievedAt}\n\n${turn.result.sources.map((s) => `- ${s.name}: ${s.status}, ${s.returned || 0} retrieved`).join("\n")}\n\n${turn.ai?.text || "No AI synthesis generated."}\n\n## Source notes\n${turn.result.papers.map((p, i) => `### ${i + 1}. ${p.title}\n${p.abstract || "Abstract unavailable."}\n${citation(p)}\n${p.url}`).join("\n\n")}`;
   return (
     <div className="research-chat-layout">
@@ -218,14 +231,14 @@ export default function ResearchChat() {
             icon={MessageSquare}
             title="Your research starts with a question"
           >
-            Try “semaglutide cardiovascular outcomes” or “CRISPR delivery
-            methods”. Deep search retrieves and deduplicates records from
-            Crossref and Europe PMC.
+            Tell me what you want to achieve, or ask “How can scrapeTx help me?”
+            I can help you choose a topic, find papers, compare evidence and build a cited draft.
           </Empty>
         )}
         {turns.map((turn) => (
           <article className="research-turn" key={turn.id}>
             <h2>{turn.query}</h2>
+            {turn.guide ? <ResearchGuideReply guide={turn.guide} onReply={(reply) => search(reply, "guide")} busy={busy}/> : <>
             <div className="research-phase">
               <CheckCircle2 size={16} />
               <strong>Completed literature search</strong>
@@ -373,22 +386,23 @@ export default function ResearchChat() {
             >
               Open evidence table <ArrowUp size={13} />
             </Link>
+            </>}
           </article>
         ))}
         {busy && (
           <div className="research-working" role="status">
             <LoaderCircle size={18} className="spin" />
             <div>
-              <b>Searching scholarly databases</b>
+              <b>{guiding ? "Planning your next step" : "Searching scholarly literature"}</b>
               <p>
-                Retrieving Crossref and Europe PMC records, removing duplicates,
-                and ranking title and abstract matches.
+                {guiding ? "Connecting your goal with the research tools you can use next." : "Finding relevant papers and bringing their source links together."}
               </p>
             </div>
             <button
               className="text-btn"
               onClick={() => {
                 current.current?.abort();
+                setQuery(pendingQuery.current);
                 setBusy(false);
               }}
             >
@@ -413,6 +427,10 @@ export default function ResearchChat() {
             </Button>
           </div>
         )}
+        <div className="research-conversation-mode" role="group" aria-label="Conversation mode">
+          <button type="button" aria-pressed={conversationMode === "guide"} onClick={() => setConversationMode("guide")} disabled={busy}>Guide me</button>
+          <button type="button" aria-pressed={conversationMode === "search"} onClick={() => setConversationMode("search")} disabled={busy}>Find papers</button>
+        </div>
         <form
           className="research-follow-up"
           onSubmit={(e) => {
@@ -446,15 +464,20 @@ export default function ResearchChat() {
           </button>
         </form>
         <p className="research-chat-note">
-          Evidence discovery and optional AI synthesis. Verify findings against
-          full texts.
+          {conversationMode === "guide" ? "Tell me your topic, goal, or where you are stuck. We’ll work out the next step together." : "Search published evidence or switch to Guide me to plan your project."}
         </p>
       </section>
       <aside className="research-files">
         <h2>
           <Files size={17} /> Research files
         </h2>
-        {turns.map((turn, i) => (
+        {turns.filter(turn => turn.guide).map(turn => <div className="research-file-group" key={turn.id}>
+          <h3>{excerpt(turn.query, 70)}</h3>
+          <button onClick={() => download("research-plan.md", notes(turn), "text/markdown")}>
+            <FileText size={17}/><span>Research plan<small>Markdown · Guidance</small></span><Download size={14}/>
+          </button>
+        </div>)}
+        {turns.filter(turn => turn.result).map((turn, i) => (
           <div className="research-file-group" key={turn.id}>
             <small>SEARCH {i + 1}</small>
             <h3>{excerpt(turn.query, 70)}</h3>

@@ -1,3 +1,4 @@
+import { wantsResearchGuide } from "../shared/research-guide.js";
 import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -39,7 +40,8 @@ export default function HomeWorkspace() {
 
   function submit(task = mode) {
     const params = new URLSearchParams({ topic: value });
-    if (task === "workflow") navigate("/research-workflow?" + params);
+    if (task === "search" && wantsResearchGuide(value)) navigate("/chat?guide=1&q=" + encodeURIComponent(value));
+    else if (task === "workflow") navigate("/research-workflow?" + params);
     else if (task === "draft") navigate("/ai-writer?" + params);
     else if (task === "diagram" || task === "slides")
       navigate((task === "diagram" ? "/diagrams" : "/presentation") + "?" + params);
@@ -68,6 +70,7 @@ export default function HomeWorkspace() {
         </div>
         <div className="studio-composer-frame"><Composer value={value} setValue={setValue} onSubmit={() => submit()} mode={mode}
           setMode={setMode} researchMode={researchMode} setResearchMode={(id) => {setResearchMode(id);setSource("deep");}} placeholder={source === "deep" ? "Ask a research question, compare studies, or explore a drug…" : active.placeholder} /></div>
+        <div className="home-guide-start"><Link to="/chat?guide=1&q=What%20can%20scrapeTx%20help%20me%20with%3F">What can scrapeTx help me with? <ArrowRight size={14} aria-hidden="true" /></Link><Link to="/chat?guide=1&q=I%20want%20to%20start%20a%20research%20project">Help me start a research project <ArrowRight size={14} aria-hidden="true" /></Link></div>
         <div className="home-source-heading"><span>USE</span><p>{active.description}</p>
           <div className="source-rail-controls"><button type="button" onClick={() => setAllSources(!allSources)} aria-expanded={allSources}>{allSources ? "Collapse" : "Show all"}</button>
           {!allSources && <><button type="button" aria-label="Scroll sources left" onClick={() => scrollSources(-300)}><ChevronLeft size={16}/></button><button type="button" aria-label="Scroll sources right" onClick={() => scrollSources(300)}><ChevronRight size={16}/></button></>}</div>

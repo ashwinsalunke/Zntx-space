@@ -1,5 +1,7 @@
+import { GUIDE_SCHEMA, validateGuide } from "../shared/research-guide.js";
 const string = { type: "string" };
 export const WORKFLOW_SCHEMAS = {
+  guide: GUIDE_SCHEMA,
   "workflow-plan": {
     type: "object",
     properties: { query: string, title: string, note: string },
@@ -66,6 +68,7 @@ export function validateWorkflowOutput(task, text) {
     fail();
   }
   if (!data || typeof data !== "object" || Array.isArray(data)) fail();
+  if (task === "guide") return JSON.stringify(validateGuide(data));
   if (task === "workflow-plan") {
     if (!valid(data.query, 500) || !valid(data.title, 200)) fail();
     return JSON.stringify({
