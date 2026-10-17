@@ -1,3 +1,4 @@
+import { ImageGenerator } from "./GeneratedImage.jsx";
 import SourcePdfReader, { pdfReaderLink } from "./SourcePdfReader.jsx";
 import React, {
   useState,
@@ -473,7 +474,7 @@ export default function App() {
                 element={<TextTool kind="detector" />}
               />
               <Route path="/diagrams" element={<DiagramTool />} />
-              <Route path="/presentation" element={<DiagramTool slides />} />
+              <Route path="/presentation" element={<ResearchWorkflow presentation />} />
               <Route
                 path="*"
                 element={
@@ -2209,10 +2210,12 @@ function TextTool({ kind }) {
 }
 function DiagramTool({ slides = false }) {
   const [params] = useSearchParams();
-  const { notify, library } = useApp();
+  const { notify, library, saveNote } = useApp();
   const [selectedEvidence, setSelectedEvidence] = useState([]);
   const [requestedEvidence, setRequestedEvidence] = useState([]);
   const [requestRevision, setRequestRevision] = useState(0);
+  const [diagramMode, setDiagramMode] = useState("flowchart");
+  const [requestedMode, setRequestedMode] = useState("flowchart");
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [done, setDone] = useState("");
   const [step, setStep] = useState(0);
@@ -2243,11 +2246,13 @@ function DiagramTool({ slides = false }) {
             : "Create a visual flowchart or scientific process diagram. Download it as PNG or SVG."}
         </p>
       </div>
+      {!slides && <label className="diagram-output-choice">Output <select value={diagramMode} onChange={e=>setDiagramMode(e.target.value)}><option value="flowchart">Editable flowchart</option><option value="image">AI-generated image</option></select></label>}
       <form
         className="search-form"
         onSubmit={(e) => {
           e.preventDefault();
           setDone(topic.trim());
+          setRequestedMode(diagramMode);
           setRequestedEvidence(
             library.filter((p) => selectedEvidence.includes(p.id)).slice(0, 6),
           );
@@ -2263,7 +2268,7 @@ function DiagramTool({ slides = false }) {
           placeholder="What is your research about?"
         />
         <Button primary disabled={!topic.trim()}>
-          Create {slides ? "outline" : "diagram"} <ArrowRight size={15} />
+          Create {slides ? "outline" : diagramMode === "image" ? "image" : "diagram"} <ArrowRight size={15} />
         </Button>
       </form>
       {!slides && library.some((p) => p.abstract) && (
@@ -2346,7 +2351,7 @@ function DiagramTool({ slides = false }) {
               Export PowerPoint
             </Button>
           )}
-          <AiPanel
+          {(slides || requestedMode === "flowchart") && <AiPanel
             key={requestRevision}
             task={slides ? "draft" : "diagram"}
             evidence={slides ? [] : requestedEvidence}
@@ -2361,7 +2366,7 @@ function DiagramTool({ slides = false }) {
                 ? "Generate slide outline with AI"
                 : "Generate scientific diagram"
             }
-          />
+          />}
           {slides ? (
             <div className="slides-workspace">
               <div className="slide-thumbnails">
@@ -2396,6 +2401,7 @@ function DiagramTool({ slides = false }) {
               </div>
             </div>
           ) : null}
+          {!slides && <ImageGenerator key={'image-'+requestRevision} context="diagram" prompt={done} autoGenerate={requestedMode === "image"} onSave={asset=>saveNote({title:done.slice(0,150),content:"AI-generated conceptual illustration. Review scientific details before using it as teaching material.",image:asset})} onGenerated={()=>notify("AI illustration ready. Download it below.")}/>}
           <p className="tool-note">
             A starting structure for your own research. Add verified findings
             and sources before presenting.

@@ -22,6 +22,7 @@ test(
       "Event",
       "MouseEvent",
       "XMLSerializer",
+      "FormData",
     ])
       Object.defineProperty(globalThis, key, {
         configurable: true,
@@ -91,6 +92,20 @@ test(
       if (path === "/api/history") return json([]);
       if (path === "/api/config") return json({});
       if (path === "/api/ai/status") return json({ configured: true });
+      if (path === "/api/images/generate")
+        return json({
+          asset: {
+            id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            mime: "image/png",
+            width: 1,
+            height: 1,
+            alt: body.alt,
+          },
+        });
+      if (path.startsWith("/api/images/"))
+        return new Response(new Uint8Array([137, 80, 78, 71]), {
+          headers: { "Content-Type": "image/png" },
+        });
       if (path === "/api/ai/generate")
         return json({
           diagram,
@@ -196,6 +211,39 @@ test(
         1,
         "Changing sources does not silently spend another AI request",
       );
+      assert.equal(
+        calls.filter((c) => c.path === "/api/images/generate").length,
+        0,
+        "A flowchart does not request a raster illustration by default",
+      );
+      const output = document.querySelector(".diagram-output-choice select");
+      await React.act(async () => {
+        output.value = "image";
+        output.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await React.act(async () =>
+        document
+          .querySelector(".tool-page form")
+          .dispatchEvent(
+            new Event("submit", { bubbles: true, cancelable: true }),
+          ),
+      );
+      await flush();
+      await flush();
+      assert.equal(
+        calls.filter((c) => c.path === "/api/images/generate").length,
+        1,
+      );
+      assert.equal(
+        calls.find((c) => c.path === "/api/images/generate").body.context,
+        "diagram",
+      );
+      assert.equal(
+        calls.filter((c) => c.path === "/api/ai/generate").length,
+        1,
+        "Image output does not also generate a text flowchart",
+      );
+      assert.ok(document.querySelector(".generated-image img"));
       await React.act(async () =>
         root.render(
           React.createElement(

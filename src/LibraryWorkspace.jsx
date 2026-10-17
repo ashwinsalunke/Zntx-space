@@ -1,3 +1,4 @@
+import { GeneratedImage } from "./GeneratedImage.jsx";
 import DiagramFigure from "./DiagramFigure.jsx";
 import { isDiagram } from "./diagram-layout.js";
 import { pdfReaderLink } from "./SourcePdfReader.jsx";
@@ -143,6 +144,7 @@ function ItemDetail({ item, onClose, onEdit, onOrganize }) {
         <Button icon={FolderPlus} onClick={onOrganize}>Collections</Button>
         <Button icon={ArrowDownToLine} onClick={() => download("research-note.md", noteMarkdown(item), "text/markdown")}>Export notes</Button>
       </div>
+      {item.image?.id && <GeneratedImage asset={item.image}/>}
       {isDiagram(item.diagram) && <DiagramFigure diagram={item.diagram}/>}
       {paper && !["webpage","patent","compound","clinical-trial","drug-label","dataset","grant","software"].includes(item.type) && <PaperVerification paper={item}/>}
       {paper && item.snippet && <section><h3>Search result snippet</h3><p className="lw-prewrap">{item.snippet}</p><p className="lw-helper">This is a search preview, not a full article abstract or verified finding.</p></section>}

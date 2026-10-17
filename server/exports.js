@@ -12,6 +12,7 @@ import {
   WidthType,
 } from "docx";
 import pptxgen from "pptxgenjs";
+import { imageSize } from "image-size";
 
 const MIME = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -261,12 +262,54 @@ async function renderDocx(title, blocks) {
       part.text.split("\n").flatMap((line, index) => {
         const pieces = line.split(/(https?:\/\/[^\s<>]+)/g).filter(Boolean);
         return pieces.flatMap((piece, pieceIndex) => {
-          const format = { bold: part.bold, italics: part.italic, font: part.code ? "Courier New" : undefined, ...(index && !pieceIndex ? { break: 1 } : {}), ...extra };
+          const format = {
+            bold: part.bold,
+            italics: part.italic,
+            font: part.code ? "Courier New" : undefined,
+            ...(index && !pieceIndex ? { break: 1 } : {}),
+            ...extra,
+          };
           let candidate = piece.replace(/[.,;]*$/, "");
-          while (candidate.endsWith(")") && (candidate.match(/\)/g) || []).length > (candidate.match(/\(/g) || []).length) candidate = candidate.slice(0, -1);
+          while (
+            candidate.endsWith(")") &&
+            (candidate.match(/\)/g) || []).length >
+              (candidate.match(/\(/g) || []).length
+          )
+            candidate = candidate.slice(0, -1);
           let link;
-          try { const url = new URL(candidate); if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password) link = url.href; } catch { /* Keep ordinary text unchanged. */ }
-          return link ? [new ExternalHyperlink({ link, children: [new TextRun({ ...format, text: candidate, style: "Hyperlink" })] }), ...(piece.length > candidate.length ? [new TextRun({ text: piece.slice(candidate.length), ...extra })] : [])] : [new TextRun({ text: piece, ...format })];
+          try {
+            const url = new URL(candidate);
+            if (
+              ["http:", "https:"].includes(url.protocol) &&
+              !url.username &&
+              !url.password
+            )
+              link = url.href;
+          } catch {
+            /* Keep ordinary text unchanged. */
+          }
+          return link
+            ? [
+                new ExternalHyperlink({
+                  link,
+                  children: [
+                    new TextRun({
+                      ...format,
+                      text: candidate,
+                      style: "Hyperlink",
+                    }),
+                  ],
+                }),
+                ...(piece.length > candidate.length
+                  ? [
+                      new TextRun({
+                        text: piece.slice(candidate.length),
+                        ...extra,
+                      }),
+                    ]
+                  : []),
+              ]
+            : [new TextRun({ text: piece, ...format })];
         });
       }),
     );
@@ -411,6 +454,74 @@ function wrapLines(text, width = 78) {
     });
 }
 
+// Preserve a source entry or bullet across pages/columns whenever it fits.
+// Only a single overlong entry may continue onto the next page.
+function slideColumns(content, width, maximum = 13) {
+  const columns = [];
+  let current = [];
+  const flush = () => {
+    while (current.at(-1) === "") current.pop();
+    if (current.length) columns.push(current.join("\n"));
+    current = [];
+  };
+  for (const paragraph of content.split(/\n\s*\n/)) {
+    const paragraphLines = wrapLines(paragraph, width);
+    if (paragraphLines.length <= maximum) {
+      if (
+        current.length + paragraphLines.length + (current.length ? 1 : 0) >
+        maximum
+      )
+        flush();
+      if (current.length) current.push("");
+      current.push(...paragraphLines);
+      continue;
+    }
+    // Treat each original line as a point, so a wrapped bullet stays together.
+    for (const point of paragraph.split("\n")) {
+      const pointLines = wrapLines(point, width);
+      if (
+        pointLines.length <= maximum &&
+        current.length + pointLines.length > maximum
+      )
+        flush();
+      for (const line of pointLines) {
+        if (current.length >= maximum) flush();
+        current.push(line);
+      }
+    }
+  }
+  flush();
+  return columns.length ? columns : [""];
+}
+
+function slideTextRuns(text) {
+  const runs = [];
+  let offset = 0;
+  for (const match of text.matchAll(/https?:\/\/[^\s<>"{}]+/g)) {
+    const value = match[0].replace(/[.,;!?]+$/, "");
+    let url;
+    try {
+      url = new URL(value);
+      if (url.username || url.password) continue;
+    } catch {
+      continue;
+    }
+    if (match.index > offset)
+      runs.push({ text: text.slice(offset, match.index) });
+    runs.push({
+      text: value,
+      options: {
+        hyperlink: { url: url.href },
+        color: "355DAB",
+        underline: true,
+      },
+    });
+    offset = match.index + value.length;
+  }
+  if (offset < text.length) runs.push({ text: text.slice(offset) });
+  return runs.length ? runs : text;
+}
+
 async function renderSlides(title, slides, theme = "neutral") {
   const deck = new pptxgen();
   deck.layout = "LAYOUT_WIDE";
@@ -422,11 +533,14 @@ async function renderSlides(title, slides, theme = "neutral") {
   deck.theme = { headFontFace: "Arial", bodyFontFace: "Arial", lang: "en-US" };
   let slideNumber = 0;
   for (const item of slides) {
-    const lines = wrapLines(item.content);
+    const twoColumn = item.layout === "two-column" && !item.imageData;
+    const columns = slideColumns(
+      item.content,
+      item.imageData || twoColumn ? 40 : 78,
+    );
     const chunks = [];
-    for (let i = 0; i < lines.length; i += 13)
-      chunks.push(lines.slice(i, i + 13).join("\n"));
-    if (!chunks.length) chunks.push("");
+    for (let i = 0; i < columns.length; i += twoColumn ? 2 : 1)
+      chunks.push(twoColumn ? columns.slice(i, i + 2) : [columns[i]]);
     for (let i = 0; i < chunks.length; i += 1) {
       slideNumber += 1;
       if (slideNumber > 160)
@@ -434,8 +548,23 @@ async function renderSlides(title, slides, theme = "neutral") {
           "This content needs more than 160 slides. Shorten the presentation.",
         );
       const slide = deck.addSlide();
-      slide.background = { color: theme === "scrapetx" ? item.layout === "title" ? "EAF0E1" : "F1F0EC" : "FAFAF9" };
-      if (theme === "scrapetx") slide.addShape(deck.ShapeType.rect, { x: 0, y: 0, w: .12, h: 7.5, fill: { color: "718779" }, line: { color: "718779" } });
+      slide.background = {
+        color:
+          theme === "scrapetx"
+            ? item.layout === "title"
+              ? "EAF0E1"
+              : "F1F0EC"
+            : "FAFAF9",
+      };
+      if (theme === "scrapetx")
+        slide.addShape(deck.ShapeType.rect, {
+          x: 0,
+          y: 0,
+          w: 0.12,
+          h: 7.5,
+          fill: { color: "718779" },
+          line: { color: "718779" },
+        });
       slide.addText(i ? `${item.title} · continued ${i + 1}` : item.title, {
         x: 0.65,
         y: item.layout === "title" ? 1.2 : 0.5,
@@ -462,11 +591,47 @@ async function renderSlides(title, slides, theme = "neutral") {
         paraSpaceAfterPt: 8,
         breakLine: false,
       };
-      if (item.layout === "two-column") {
-        const rows = chunks[i].split("\n"), middle = Math.ceil(rows.length / 2);
-        slide.addText(rows.slice(0, middle).join("\n"), { ...bodyOptions, w: 5.6 });
-        slide.addText(rows.slice(middle).join("\n"), { ...bodyOptions, x: 7.0, w: 5.6 });
-      } else slide.addText(chunks[i], bodyOptions);
+      if (item.imageData) {
+        const ratio = item.imageWidth / item.imageHeight;
+        const imageHeight = Math.min(4.3, 5.9 / ratio);
+        const imageWidth = imageHeight * ratio;
+        slide.addText(slideTextRuns(chunks[i][0]), {
+          ...bodyOptions,
+          w: 5.4,
+          h: 4.4,
+        });
+        slide.addImage({
+          data: item.imageData,
+          x: 6.7 + (5.9 - imageWidth) / 2,
+          y: 1.95 + (4.3 - imageHeight) / 2,
+          w: imageWidth,
+          h: imageHeight,
+          altText: item.imageAlt || "AI-generated research illustration",
+        });
+        slide.addText("AI-generated illustration · Review scientific details", {
+          x: 6.7,
+          y: 6.4,
+          w: 5.9,
+          h: 0.25,
+          fontSize: 10,
+          color: "666666",
+          margin: 0,
+        });
+      } else if (twoColumn) {
+        const first = chunks[i][0],
+          second = chunks[i][1];
+        if (second) {
+          slide.addText(slideTextRuns(first), { ...bodyOptions, w: 5.6 });
+          slide.addText(slideTextRuns(second), {
+            ...bodyOptions,
+            x: 7.0,
+            w: 5.6,
+          });
+        } else {
+          // A short slide needs no artificial mid-sentence column break.
+          slide.addText(slideTextRuns(first), bodyOptions);
+        }
+      } else slide.addText(slideTextRuns(chunks[i][0]), bodyOptions);
       slide.addText("SCRAPETX  /  RESEARCH", {
         x: 0.7,
         y: 7.03,
@@ -486,7 +651,9 @@ async function renderSlides(title, slides, theme = "neutral") {
         color: "57534E",
         margin: 0,
       });
-      slide.addNotes(item.notes || `${title}\n\n${item.title}\n\n${item.content}`);
+      slide.addNotes(
+        item.notes || `${title}\n\n${item.title}\n\n${item.content}`,
+      );
     }
   }
   return deck.write({ outputType: "nodebuffer", compression: true });
@@ -502,7 +669,7 @@ function sendFile(res, buffer, title, format) {
   res.send(buffer);
 }
 
-export function createExportRouter() {
+export function createExportRouter({ loadImage } = {}) {
   const router = express.Router();
   router.use(express.json({ limit: "260kb" }));
   let active = 0;
@@ -552,20 +719,59 @@ export function createExportRouter() {
       )
         throw new ExportError("slides must contain between 1 and 40 slides.");
       const theme = req.body.theme || "neutral";
-      if (!["neutral", "scrapetx"].includes(theme)) throw new ExportError("Choose a supported presentation theme.");
+      if (!["neutral", "scrapetx"].includes(theme))
+        throw new ExportError("Choose a supported presentation theme.");
       const slides = req.body.slides.map((slide, index) => {
         const layout = slide?.layout || "content";
-        if (!["title", "content", "two-column"].includes(layout)) throw new ExportError("Choose a supported slide layout.");
+        if (!["title", "content", "two-column"].includes(layout))
+          throw new ExportError("Choose a supported slide layout.");
         return {
           title: field(slide?.title, `slides[${index}].title`, 200),
-          content: field(slide?.content, `slides[${index}].content`, 6000, true),
-          notes: slide?.notes === undefined ? "" : field(slide.notes, `slides[${index}].notes`, 6000, true),
+          content: field(
+            slide?.content,
+            `slides[${index}].content`,
+            6000,
+            true,
+          ),
+          notes:
+            slide?.notes === undefined
+              ? ""
+              : field(slide.notes, `slides[${index}].notes`, 6000, true),
           layout,
+          imageId:
+            slide?.imageId === undefined
+              ? ""
+              : field(slide.imageId, `slides[${index}].imageId`, 80, true),
         };
       });
+      for (const item of slides) {
+        if (!item.imageId) continue;
+        if (!/^[a-f0-9-]{36}$/i.test(item.imageId) || !loadImage)
+          throw new ExportError("Choose an image generated in this workspace.");
+        const image = await loadImage(req, item.imageId);
+        if (
+          !image?.bytes ||
+          !["image/png", "image/jpeg", "image/webp"].includes(image.mime)
+        )
+          throw new ExportError(
+            "A slide image is unavailable in this workspace. Remove it or generate a replacement.",
+            404,
+          );
+        item.imageData = `data:${image.mime};base64,${Buffer.from(image.bytes).toString("base64")}`;
+        const dimensions = imageSize(image.bytes);
+        item.imageWidth = dimensions.width;
+        item.imageHeight = dimensions.height;
+        item.imageAlt = image.alt || "AI-generated research illustration";
+        item.notes =
+          `${item.notes}\n\nIllustration: AI-generated using Cloudflare Workers AI. Not research evidence. ${image.alt || ""}`.trim();
+      }
       if (
         slides.reduce(
-          (sum, slide) => sum + slide.title.length + slide.content.length + slide.notes.length,
+          (sum, slide) =>
+            sum +
+            slide.title.length +
+            slide.content.length +
+            slide.notes.length,
           0,
         ) > 120000
       )

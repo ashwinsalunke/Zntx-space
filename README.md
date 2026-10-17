@@ -6,6 +6,8 @@ The [brand guide](docs/brand.md) documents the supplied identity, typography, in
 
 **Start Research** provides a simple **Topic → Sources → Create** workflow for source-linked papers and presentations. Choose a template, review collected literature, edit a rich document and slides, and download DOCX/PPTX files. It autosaves in Research Projects and recovers unsaved edits on the same browser. See the [workflow guide](docs/research-workflow.md).
 
+**Make slides** opens a presentation-first workflow with selectable research sources, editable slides, speaker notes, and cited references. Cloudflare Workers AI illustrations are optional and are generated only for explicit diagram or presentation actions. See [presentations and image setup](docs/presentations-and-images.md).
+
 ## Start
 
 Requires Node 24 (or Node 22.13+).

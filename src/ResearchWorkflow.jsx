@@ -1,3 +1,8 @@
+import { GeneratedImage, ImageGenerator } from "./GeneratedImage.jsx";
+import {
+  searchPresentationSources,
+  slideImagePrompt,
+} from "./presentation-research.js";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -90,13 +95,15 @@ function cacheWorkflow(value) {
   }
 }
 
-export default function ResearchWorkflow() {
-  const { notify, navigate } = useApp();
+export default function ResearchWorkflow({ presentation = false }) {
+  const { notify, navigate, library } = useApp();
   const [params, setParams] = useSearchParams();
   const id = params.get("id");
   const [state, setState] = useState(() =>
     newWorkflow({
       topic: params.get("topic") || "",
+      deliverable: presentation ? "presentation" : "paper-and-slides",
+      output: presentation ? "slides" : "paper",
       templateId: workflowTemplate(params.get("template")).id,
     }),
   );
@@ -122,6 +129,7 @@ export default function ResearchWorkflow() {
   const [assistQuestion, setAssistQuestion] = useState(""),
     [assist, setAssist] = useState(null),
     [aiStatus, setAiStatus] = useState(null);
+  const presentationMode = presentation || state.deliverable === "presentation";
   const selection = state.sources.filter((s) => s.selected);
   const paperText = documentMarkdown(state.document),
     review = reviewWorkflow(state);
@@ -161,7 +169,10 @@ export default function ResearchWorkflow() {
       type: "research-workflow",
       title: snapshot.title || snapshot.topic,
       question: snapshot.topic,
-      description: `${workflowTemplate(snapshot.templateId).title} · Paper and slides`,
+      description:
+        snapshot.deliverable === "presentation"
+          ? "Research presentation"
+          : `${workflowTemplate(snapshot.templateId).title} · Paper and slides`,
       createdAt: snapshot.createdAt,
       updatedAt: snapshot.updatedAt,
       papers: {},
@@ -344,6 +355,12 @@ export default function ResearchWorkflow() {
   function progress(label, signal) {
     signal.throwIfAborted();
     if (mounted.current) setBusy(label);
+    update((before) => ({
+      activity: [
+        ...(before.activity || []),
+        { label, at: new Date().toISOString() },
+      ].slice(-40),
+    }));
   }
   async function generate(task, prompt, sources, signal) {
     const data = await api("/api/ai/generate", {
@@ -400,9 +417,10 @@ export default function ResearchWorkflow() {
     update({ ...plan, step: 1 });
     setSourceQuery(plan.query);
     progress("Searching scholarly sources…", signal);
-    const result = await api(
-      `/api/discovery/search?q=${encodeURIComponent(plan.query)}`,
-      { signal },
+    const result = await searchPresentationSources(
+      plan.query,
+      current.current.sourceTools || ["deep"],
+      { signal, library },
     );
     signal.throwIfAborted();
     const sources = selectInitialSources(normalizeSources(result.papers));
@@ -426,17 +444,18 @@ export default function ResearchWorkflow() {
         "One source provider was unavailable. These are partial search results; review the source status below.",
       ]);
     if (allIn) {
-      await makePaper(signal);
+      if (!presentationMode) await makePaper(signal);
       await makeSlides(signal);
-      update({ output: "paper" });
+      update({ output: presentationMode ? "slides" : "paper" });
     }
   }
   async function searchMore(signal) {
     const query = sourceQuery.trim();
     if (!query) throw new Error("Enter a search query.");
-    const result = await api(
-      `/api/discovery/search?q=${encodeURIComponent(query)}`,
-      { signal },
+    const result = await searchPresentationSources(
+      query,
+      current.current.sourceTools || ["deep"],
+      { signal, library },
     );
     signal.throwIfAborted();
     const existing = current.current.sources,
@@ -554,6 +573,45 @@ export default function ResearchWorkflow() {
     }));
     setSlideIndex(0);
     await persist();
+    if (current.current.includeImages) {
+      const picks = [...new Set([0, 1, Math.min(3, slides.length - 1)])].filter(
+        (i) => slides[i],
+      );
+      for (const index of picks) {
+        signal.throwIfAborted();
+        progress(
+          `Creating illustration ${picks.indexOf(index) + 1} of ${picks.length}…`,
+          signal,
+        );
+        try {
+          const image = await api("/api/images/generate", {
+            method: "POST",
+            signal,
+            body: JSON.stringify({
+              context: "presentation",
+              prompt: slideImagePrompt(current.current, slides[index]),
+              alt: `Illustration for ${slides[index].title}`,
+            }),
+          });
+          signal.throwIfAborted();
+          update((before) => ({
+            slides: before.slides.map((item) =>
+              item.id === slides[index].id
+                ? { ...item, image: image.asset }
+                : item,
+            ),
+          }));
+          await persist();
+        } catch (failure) {
+          if (signal.aborted) throw failure;
+          setNotices((n) => [
+            ...n,
+            `Your deck is saved. Illustration generation stopped: ${failure.message}`,
+          ]);
+          break;
+        }
+      }
+    }
   }
   function toggleSource(source) {
     if (!source.selected && selection.length >= 12)
@@ -574,7 +632,10 @@ export default function ResearchWorkflow() {
     operation.current = null;
     setBusy("");
     if (current.current.id) persist().catch(() => {});
-    const next = newWorkflow();
+    const next = newWorkflow({
+      deliverable: presentation ? "presentation" : "paper-and-slides",
+      output: presentation ? "slides" : "paper",
+    });
     current.current = next;
     setState(next);
     revision.current++;
@@ -690,6 +751,7 @@ export default function ResearchWorkflow() {
           content: referenceText(s.content, value.sources).content,
           notes: referenceText(s.notes, value.sources).content,
           layout: s.layout,
+          ...(s.image?.id ? { imageId: s.image.id } : {}),
         }));
         const refs = referenceText(
           value.slides.map((s) => `${s.content}\n${s.notes}`).join("\n"),
@@ -698,10 +760,10 @@ export default function ResearchWorkflow() {
         )
           .references.split("\n\n")
           .filter(Boolean);
-        for (let i = 0; i < refs.length; i += 4)
+        for (let i = 0; i < refs.length; i += 2)
           slides.push({
             title: i ? "References · continued" : "References",
-            content: refs.slice(i, i + 4).join("\n\n"),
+            content: refs.slice(i, i + 2).join("\n\n"),
             layout: "content",
             notes:
               "Original source records for the cited research. Verify the findings against the original publications.",
@@ -790,8 +852,16 @@ export default function ResearchWorkflow() {
       <header className="rf-heading">
         <div>
           <span className="rf-eyebrow">Research, distilled.</span>
-          <h1>From a question to a paper.</h1>
-          <p>Find your sources. Build your draft. Present your research.</p>
+          <h1>
+            {presentationMode
+              ? "From a topic to a presentation."
+              : "From a question to a paper."}
+          </h1>
+          <p>
+            {presentationMode
+              ? "Find research, compare findings, and build an editable PowerPoint."
+              : "Find your sources. Build your draft. Present your research."}
+          </p>
         </div>
         <div className="rf-heading-actions">
           {state.id && (
@@ -904,6 +974,16 @@ export default function ResearchWorkflow() {
         </p>
       )}
 
+      {!!state.activity?.length && (
+        <details className="rf-activity">
+          <summary>Research activity · {state.activity.length} steps</summary>
+          <ol>
+            {state.activity.map((event, i) => (
+              <li key={i}>{event.label}</li>
+            ))}
+          </ol>
+        </details>
+      )}
       {state.step === 0 && (
         <div className="rf-start-layout">
           <div className="rf-card rf-start-card">
@@ -928,6 +1008,7 @@ export default function ResearchWorkflow() {
                 placeholder="e.g. How do GLP-1 medicines affect cardiovascular outcomes?"
               />
               <fieldset
+                style={presentationMode ? { display: "none" } : undefined}
                 className="rf-template-options"
                 disabled={!!busy || !!state.sources.length}
               >
@@ -954,6 +1035,49 @@ export default function ResearchWorkflow() {
                   </label>
                 ))}
               </fieldset>
+              <fieldset
+                className="rf-provider-options"
+                disabled={!!busy || !!state.sources.length}
+              >
+                <legend>Search sources</legend>
+                {[
+                  ["deep", "Scholarly sources"],
+                  ["arxiv", "arXiv"],
+                  ["scholar", "Google Scholar"],
+                  ["library", "My Library"],
+                ].map(([key, name]) => (
+                  <label key={key}>
+                    <input
+                      type="checkbox"
+                      checked={(state.sourceTools || ["deep"]).includes(key)}
+                      onChange={(e) =>
+                        update({
+                          sourceTools: e.target.checked
+                            ? [...(state.sourceTools || ["deep"]), key]
+                            : (state.sourceTools || ["deep"]).filter(
+                                (id) => id !== key,
+                              ),
+                        })
+                      }
+                    />
+                    {name}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="rf-image-options">
+                <input
+                  type="checkbox"
+                  checked={!!state.includeImages}
+                  disabled={!!busy}
+                  onChange={(e) => update({ includeImages: e.target.checked })}
+                />
+                <span>
+                  <b>Add AI illustrations to my slides</b>
+                  <br />
+                  Generate up to three images using your Cloudflare connection.
+                  Images are created only when this option is selected.
+                </span>
+              </label>
               <details className="rf-options">
                 <summary>Length, audience & references</summary>
                 <div className="rf-options-grid">
@@ -1048,11 +1172,12 @@ export default function ResearchWorkflow() {
                       )
                     }
                   >
-                    Do it all
+                    {presentationMode ? "Create presentation" : "Do it all"}
                   </Button>
                   <small>
-                    “Do it all” finds sources, writes a draft, and builds
-                    slides.
+                    {presentationMode
+                      ? "Searches your chosen sources, reads available evidence, and builds your deck."
+                      : "“Do it all” finds sources, writes a draft, and builds slides."}
                   </small>
                 </div>
               )}
@@ -1314,14 +1439,16 @@ export default function ResearchWorkflow() {
               disabled={!!busy || !selection.length}
               onClick={() =>
                 run("Creating your paper and slides…", async (signal) => {
-                  await makePaper(signal);
+                  if (!presentationMode) await makePaper(signal);
                   await makeSlides(signal);
-                  update({ output: "paper" });
+                  update({ output: presentationMode ? "slides" : "paper" });
                 })
               }
               icon={Sparkles}
             >
-              Create paper & slides
+              {presentationMode
+                ? "Create presentation"
+                : "Create paper & slides"}
             </Button>
           </aside>
         </div>
@@ -1596,7 +1723,7 @@ export default function ResearchWorkflow() {
                         {activeSlide && (
                           <>
                             <div
-                              className={`rf-slide-preview layout-${activeSlide.layout}`}
+                              className={`rf-slide-preview layout-${activeSlide.layout} ${activeSlide.image ? "has-image" : ""}`}
                             >
                               <span className="rf-slide-brand">
                                 scrapeTx / Research
@@ -1609,10 +1736,42 @@ export default function ResearchWorkflow() {
                                   prefix="workflow"
                                 />
                               </div>
+                              {activeSlide.image && (
+                                <GeneratedImage asset={activeSlide.image} />
+                              )}
                               <span className="rf-slide-number">
                                 {slideIndex + 1}
                               </span>
                             </div>
+                            <details>
+                              <summary>
+                                Add or replace an AI illustration
+                              </summary>
+                              <ImageGenerator
+                                key={activeSlide.id}
+                                context="presentation"
+                                prompt={slideImagePrompt(state, activeSlide)}
+                                disabled={!!busy}
+                                onGenerated={(asset) =>
+                                  update((before) => ({
+                                    slides: before.slides.map((item) =>
+                                      item.id === activeSlide.id
+                                        ? { ...item, image: asset }
+                                        : item,
+                                    ),
+                                  }))
+                                }
+                              />
+                              {activeSlide.image && (
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  onClick={() => patchSlide({ image: null })}
+                                >
+                                  Remove image from slide
+                                </button>
+                              )}
+                            </details>
                             <div className="rf-slide-controls">
                               <label>
                                 Layout

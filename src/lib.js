@@ -72,17 +72,31 @@ export function citation(p, style = "APA") {
   if (style === "RIS")
     return `TY  - ${book ? "BOOK" : chapter ? "CHAP" : webRecord ? "GEN" : "JOUR"}\nTI  - ${p.title}\n${authors.map((a) => `AU  - ${a}`).join("\n")}\nPY  - ${year}\nJO  - ${p.journal || ""}\nDO  - ${doi}\nUR  - ${url}\nER  - `;
   const formatted = authors.map((a) => {
-    const words = a.split(" ");
-    const last = words.pop();
-    return `${last}, ${words.map((w) => w[0] + ".").join(" ")}`;
+    const name = a.trim();
+    if (!name.includes(" ")) return name;
+    const initials = (given) => given.split(/[\s-]+/).filter(Boolean).map(w => w[0] + ".").join(" ");
+    if (name.includes(",")) {
+      const [family, ...given] = name.split(",");
+      return `${family.trim()}, ${initials(given.join(" ").trim())}`;
+    }
+    const words = name.split(/\s+/), tail = [];
+    // Europe PMC supplies surname-first names such as "Yoshikawa K" or
+    // "Son JY". Do not mistake those initials for the author's surname.
+    while (words.length > 1 && /^(?:[A-Z]\.?){1,4}$/.test(words.at(-1)))
+      tail.unshift(words.pop());
+    if (tail.length)
+      return `${words.join(" ")}, ${tail.join("").replace(/\./g, "").split("").map(c => c + ".").join(" ")}`;
+    const family = words.pop();
+    return `${family}, ${initials(words.join(" "))}`;
   });
   if (style === "MLA")
     return `${authors.join(", ")}. “${p.title}.” ${p.journal || ""}, ${year}. ${url}`;
   if (style === "IEEE")
     return `${authors.join(", ")}, “${p.title},” ${p.journal || ""}, ${year}.${doi ? ` doi: ${doi}.` : ""}${url ? ` ${url}` : ""}`;
+  const title = /[.!?]$/.test(p.title) ? p.title : p.title + ".";
   const lead = formatted.length
-    ? `${formatted.slice(0, 20).join(", ")}${authors.length > 20 ? ", et al." : ""} (${year}). ${p.title}.`
-    : `${p.title}. (${year}).`;
+    ? `${formatted.slice(0, 20).join(", ")}${authors.length > 20 ? ", et al." : ""} (${year}). ${title}`
+    : `${title} (${year}).`;
   return `${lead} ${p.journal || ""}${p.volume ? ", " + p.volume : ""}${p.issue ? "(" + p.issue + ")" : ""}${p.pages ? ", " + p.pages : ""}. ${url}`;
 }
 export function bibliographyHtml(papers, style = "APA") {

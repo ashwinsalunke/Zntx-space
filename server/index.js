@@ -15,7 +15,8 @@ import {
 import biomedicalRouter from "./biomedical.js";
 import aiRouter from "./ai.js";
 import discoveryRouter from "./discovery.js";
-import exportRouter from "./exports.js";
+import { createExportRouter } from "./exports.js";
+import { createImageRouter, createImageStore } from "./image-generation.js";
 import integrationsRouter from "./integrations.js";
 import sourcesRouter from "./sources.js";
 import { createPublicPdfRouter } from "./public-pdf.js";
@@ -102,11 +103,15 @@ app.use("/api/source-pdf", createPublicPdfRouter());
 app.use("/api/biomedical", biomedicalRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/discovery", discoveryRouter);
-app.use("/api/export", exportRouter);
+const imageStore = createImageStore();
+app.use("/api/export", createExportRouter({
+  loadImage: (req, id) => imageStore.get(workspaceToken(req), id),
+}));
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/sources", sourcesRouter);
 app.use("/api/verification", verificationRouter);
 const connectorVault = createConnectorVault();
+app.use("/api/images", createImageRouter({ vault: connectorVault, store: imageStore }));
 app.use("/api/connections", createConnectionsRouter({ vault: connectorVault }));
 app.use("/api/google-search", createGoogleSearchRouter({ getCredential: (req) => connectorVault.get(workspaceToken(req), "serpapi")?.apiKey || null }));
 app.use("/api/library-sync", createLibrarySyncRouter({

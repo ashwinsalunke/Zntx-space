@@ -25,6 +25,7 @@ test(
       "Event",
       "MouseEvent",
       "KeyboardEvent",
+      "FormData",
     ])
       Object.defineProperty(globalThis, key, {
         configurable: true,
@@ -52,7 +53,8 @@ test(
       calls = [];
     let delayedAI = null,
       delayNext = false,
-      failSaves = false;
+      failSaves = false,
+      failImages = false;
     const response = (value, status = 200) =>
       new Response(JSON.stringify(value), {
         status,
@@ -67,6 +69,23 @@ test(
       if (path === "/api/library" || path === "/api/history")
         return response([]);
       if (path === "/api/ai/status") return response({ configured: true });
+      if (path === "/api/images/generate") {
+        if (failImages)
+          return response({ error: "Cloudflare quota exhausted." }, 429);
+        return response({
+          asset: {
+            id: crypto.randomUUID(),
+            mime: "image/png",
+            width: 1,
+            height: 1,
+            alt: body.alt,
+          },
+        });
+      }
+      if (path.startsWith("/api/images/"))
+        return new Response(Uint8Array.from([137, 80, 78, 71]), {
+          headers: { "Content-Type": "image/png" },
+        });
       if (path === "/api/records/projects")
         return response([...records.values()]);
       if (path.startsWith("/api/records/projects/")) {
@@ -373,6 +392,98 @@ test(
       assert.equal(
         records.get(saved.id).workflow.title,
         "Recovered title after an outage",
+      );
+      // Presentation mode creates a deck without invoking paper generation or images by default.
+      await act(async () => root.unmount());
+      root = createRoot(document.getElementById("root"));
+      await act(async () =>
+        root.render(
+          React.createElement(
+            MemoryRouter,
+            { initialEntries: ["/presentation?topic=Animal%20rehabilitation"] },
+            React.createElement(App),
+          ),
+        ),
+      );
+      await wait(
+        () => button("Create presentation"),
+        "presentation workflow entry",
+      );
+      const beforePresentation = calls.length;
+      await click(button("Create presentation"));
+      await wait(
+        () => document.querySelector(".rf-slide-preview"),
+        "presentation generated directly",
+      );
+      const presentationCalls = calls.slice(beforePresentation);
+      assert.ok(
+        presentationCalls.some((c) => c.body?.task === "workflow-slides"),
+      );
+      assert.ok(
+        !presentationCalls.some((c) => c.body?.task === "workflow-paper"),
+      );
+      assert.ok(
+        !presentationCalls.some((c) => c.path === "/api/images/generate"),
+      );
+      assert.match(
+        document.querySelector(".rf-activity").textContent,
+        /Building your presentation/,
+      );
+      await wait(
+        () => !document.querySelector(".rf-progress"),
+        "presentation saved",
+      );
+      await click(button("New"));
+      await fill(
+        document.getElementById("rf-topic"),
+        "Animal rehabilitation with illustrations",
+      );
+      await click(document.querySelector(".rf-image-options input"));
+      const beforeImages = calls.length;
+      await click(button("Create presentation"));
+      await wait(
+        () =>
+          !document.querySelector(".rf-progress") &&
+          document.querySelector(".rf-slide-preview"),
+        "illustrated presentation finishes",
+      );
+      const imageCalls = calls
+        .slice(beforeImages)
+        .filter((c) => c.path === "/api/images/generate");
+      assert.equal(imageCalls.length, 2);
+      assert.ok(imageCalls.every((c) => c.body.context === "presentation"));
+      assert.ok(
+        [...records.values()].some(
+          (record) =>
+            record.workflow.slides.length === 2 &&
+            record.workflow.slides.every((slide) => slide.image?.id),
+        ),
+      );
+
+      // A provider failure must retain the editable deck that was saved first.
+      await click(button("New"));
+      await fill(
+        document.getElementById("rf-topic"),
+        "Animal rehabilitation despite image outage",
+      );
+      await click(document.querySelector(".rf-image-options input"));
+      failImages = true;
+      await click(button("Create presentation"));
+      await wait(
+        () =>
+          document.body.textContent.includes(
+            "Your deck is saved. Illustration generation stopped",
+          ),
+        "image failure keeps deck",
+      );
+      assert.ok(document.querySelector(".rf-slide-preview"));
+      assert.ok(
+        [...records.values()].some(
+          (record) =>
+            record.workflow.topic ===
+              "Animal rehabilitation despite image outage" &&
+            record.workflow.slides.length === 2,
+        ),
       );
     } finally {
       if (root) await act(async () => root.unmount());

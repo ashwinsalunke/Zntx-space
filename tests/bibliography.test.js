@@ -41,6 +41,17 @@ test('all bibliography formats preserve source URLs when a DOI is absent', () =>
   assert.match(citation(paper,'RIS'), /UR  - https:\/\/pubchem/);
 });
 
+test('APA bibliography retains surnames from both full-name and Europe PMC initial formats', () => {
+  const text=citation({title:'Veterinary rehabilitation.',authors:['Yoshikawa K','Son JY','Muršec A','Fay Horak','Smith, Alex','PubChem'],year:2026});
+  assert.match(text,/Yoshikawa, K\./);
+  assert.match(text,/Son, J\. Y\./);
+  assert.match(text,/Muršec, A\./);
+  assert.match(text,/Horak, F\./);
+  assert.match(text,/Smith, A\./);
+  assert.match(text,/PubChem \(2026\)/);
+  assert.doesNotMatch(text,/rehabilitation\.\./);
+});
+
 test('book and chapter metadata retain appropriate export types and original source links', () => {
   const book=crossrefPaper({DOI:'10.1234/book',title:['A research book'],type:'book',publisher:'Example Press',ISBN:['9781234567890']});
   assert.equal(book.publisher,'Example Press');

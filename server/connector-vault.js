@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const defaultDirectory = fileURLToPath(new URL("../.data/", import.meta.url));
-const providers = new Set(["serpapi", "zotero", "mendeley"]);
+const providers = new Set(["serpapi", "zotero", "mendeley", "cloudflare"]);
 export function createConnectorVault({ directory = defaultDirectory } = {}) {
   let db, key;
   function open() {
