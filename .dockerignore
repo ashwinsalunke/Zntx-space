@@ -7,3 +7,5 @@ dist
 artifacts
 *.log
 .DS_Store
+
+.tools

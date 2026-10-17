@@ -1,13 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
-// Poses are separate MODEL records; keep the chosen pose independent of receptor coordinates.
-export function dockingPose(text, mode) {
-  const models = String(text || "").match(/\bMODEL\s+\d+[\s\S]*?\bENDMDL\b/g);
-  return models?.length
-    ? models[Math.max(0, Math.min(models.length - 1, mode - 1))]
-    : text;
-}
+import { dockingPose, styleReceptor } from "./molecule-model.js";
+export { dockingPose } from "./molecule-model.js";
 
 export default function MoleculeViewer({ receptor, poses, mode = 1 }) {
   const container = useRef(null),
@@ -48,11 +43,7 @@ export default function MoleculeViewer({ receptor, poses, mode = 1 }) {
         });
         viewer.current = instance;
         const protein = instance.addModel(receptor, "pdbqt");
-        protein.setStyle({}, { cartoon: { color: "#a5b6ac", opacity: 0.85 } });
-        protein.addStyle(
-          { hetflag: true },
-          { stick: { radius: 0.12, colorscheme: "grayCarbon" } },
-        );
+        styleReceptor(protein);
         const ligand = instance.addModel(
           dockingPose(poses, poseRef.current),
           "pdbqt",

@@ -1,3 +1,4 @@
+import SourceIcon from "./SourceIcon.jsx";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { sourceExamples } from "./tool-examples.js";
 import PersonalLibrarySources from "./PersonalLibrarySources.jsx";
@@ -52,6 +53,7 @@ export default function SourceWorkspace() {
     setYearTo(yearToParam);
     setResult(null);
     setError("");
+    setBusy(false);
     if (queryParam && !personal) search(queryParam, yearFromParam, yearToParam);
     return () => request.current?.abort();
   }, [sourceId, queryParam, yearFromParam, yearToParam]);
@@ -79,7 +81,7 @@ export default function SourceWorkspace() {
       );
       if (!controller.signal.aborted) setResult(data);
     } catch (e) {
-      if (e.name !== "AbortError") setError(e.message);
+      if (!controller.signal.aborted) setError(e.message);
     } finally {
       if (!controller.signal.aborted) setBusy(false);
     }
@@ -146,13 +148,7 @@ export default function SourceWorkspace() {
       </Link>
       <div className="source-page-heading">
         <span className="source-page-icon">
-          {personal ? (
-            <Library size={26} />
-          ) : googleSource ? (
-            <Globe size={26} />
-          ) : (
-            <Database size={26} />
-          )}
+          <SourceIcon source={sourceId} size={26} />
         </span>
         <div>
           <span className="section-label">YOUR RESEARCH TOOLKIT</span>

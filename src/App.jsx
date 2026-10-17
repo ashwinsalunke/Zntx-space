@@ -7,8 +7,7 @@ import React, {
   useState,
   useEffect,
   useRef,
-  createContext,
-  useContext,
+  useId,
   lazy,
   Suspense,
 } from "react";
@@ -85,6 +84,7 @@ import {
   Bot,
   Database,
 } from "lucide-react";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import BrandLogo from "./Brand.jsx";
 import { api, download, citation, csv, excerpt, wordCount, sourceUrl, bibliographyHtml } from "./lib.js";
 import { relevantPassages } from "../server/research.js";
@@ -109,11 +109,13 @@ const TemplatesWorkspace = lazy(() => import("./TemplatesWorkspace.jsx"));
 const AgentGallery = lazy(() => import("./AgentGallery.jsx"));
 const AutomationWorkspace = lazy(() => import("./AutomationWorkspace.jsx"));
 const ResearchWorkflow = lazy(() => import("./ResearchWorkflow.jsx"));
-const Ctx = createContext();
-export const useApp = () => useContext(Ctx);
+import { AppContext as Ctx, useApp } from "./app-context.js";
+export { useApp } from "./app-context.js";
 const navigation = [
   ["/", Home, "Home"],
   ["/research-workflow", FileText, "Start Research"],
+  ["/library", Library, "My Library"],
+  ["/docking", Atom, "Molecular Docking"],
   ["/agents", Network, "Agent Gallery"],
   ["/automations", Clock, "Research Watches"],
   ["/templates", Files, "Templates"],
@@ -128,9 +130,10 @@ const navigation = [
   ["/paraphraser", ScanText, "Paraphraser"],
   ["/citation-generator", Quote, "Citation Generator"],
   ["/extract-data", Database, "Extract Data"],
-  ["/docking", Atom, "Molecular Docking"],
-  ["/ai-detector", ScanText, "AI Detector"],
-  ["/ai-humanizer", Sparkles, "AI Humanizer"],
+  ["/diagrams", Network, "Diagrams"],
+  ["/presentation", Presentation, "Presentations"],
+  ["/ai-detector", ScanText, "Writing Analysis"],
+  ["/ai-humanizer", Sparkles, "Writing Polish"],
 ];
 function Logo({ full = true }) {
   return <BrandLogo compact={!full} />;
@@ -165,6 +168,7 @@ export function Empty({ icon: Icon = FolderOpen, title, children }) {
 }
 export function Modal({ title, children, onClose, wide = false }) {
   const ref = useRef();
+  const titleId = useId();
   useEffect(() => {
     ref.current.showModal();
     return () => ref.current?.close();
@@ -172,6 +176,7 @@ export function Modal({ title, children, onClose, wide = false }) {
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       className={`modal ${wide ? "wide" : ""}`}
       onCancel={(e) => {
         e.preventDefault();
@@ -182,7 +187,7 @@ export function Modal({ title, children, onClose, wide = false }) {
       }}
     >
       <div className="modal-head">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button
           className="icon-btn"
           aria-label="Close dialog"
@@ -212,6 +217,7 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const timer = useRef();
+  const pendingLibrary = useRef(new Set());
   useEffect(() => {
     const media = window.matchMedia("(max-width: 759px)");
     const update = () => setIsNarrow(media.matches);
@@ -255,6 +261,8 @@ export default function App() {
     document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation", "/read-pdf": "PDF Reader" }[location.pathname] || "Research workspace"} · scrapeTx`;
   }, [location.pathname]);
   const savePaper = async (p) => {
+    if (pendingLibrary.current.has(p.id)) return;
+    pendingLibrary.current.add(p.id);
     try {
       if (library.some((x) => x.id === p.id)) {
         await api("/api/library/" + encodeURIComponent(p.id), {
@@ -264,11 +272,13 @@ export default function App() {
         notify("Source removed from your library.");
       } else {
         await api("/api/library", { method: "POST", body: JSON.stringify(p) });
-        setLibrary((v) => [p, ...v]);
+        setLibrary((v) => [p, ...v.filter(x => x.id !== p.id)]);
         notify("Source saved to your library.");
       }
     } catch (e) {
       notify(e.message, true);
+    } finally {
+      pendingLibrary.current.delete(p.id);
     }
   };
   const refreshLibrary = () => api("/api/library").then(setLibrary);
@@ -328,30 +338,20 @@ export default function App() {
             </button>
           </div>
           <div className="sidebar-scroll"><nav aria-label="Research tools">
-            {navigation.slice(0, 15).map(([path, Icon, label]) => (
-              <NavLink
-                end={path === "/"}
-                key={path}
-                to={path}
-                title={collapsed ? label : undefined}
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <Icon size={17} strokeWidth={1.65} />
-                <span>{label}</span>
+            {navigation.filter(([path]) => ["/", "/research-workflow", "/library", "/search", "/chat", "/projects", "/pharma", "/docking"].includes(path)).map(([path, Icon, label]) => (
+              <NavLink end={path === "/"} key={path} to={path} title={label} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+                <Icon size={17} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span>
               </NavLink>
             ))}
           </nav>
-          <details className="sidebar-utilities" open={["/extract-data", "/docking", "/ai-detector", "/ai-humanizer", "/integrations", "/library"].includes(location.pathname) || undefined}><summary><MoreHorizontal size={18} /><span>More tools</span><ChevronDown size={14}/></summary>
-            {navigation.slice(15).map(([path, Icon, label]) => <NavLink key={path} to={path} title={collapsed ? label : undefined} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.65}/><span>{label}</span></NavLink>)}
+          {[
+            ["Write & present", ["/templates", "/ai-writer", "/diagrams", "/presentation", "/citation-generator", "/paraphraser", "/ai-humanizer"]],
+            ["Research tools", ["/agents", "/automations", "/chat-pdf", "/verification", "/concepts", "/extract-data", "/ai-detector"]],
+          ].map(([label, paths]) => <details key={label} className="sidebar-utilities" open={paths.includes(location.pathname) || collapsed || undefined}>
+            <summary><MoreHorizontal size={18} aria-hidden="true"/><span>{label}</span><ChevronDown size={14} aria-hidden="true"/></summary>
+            {navigation.filter(([path]) => paths.includes(path)).map(([path, Icon, name]) => <NavLink key={path} to={path} title={name} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.8} aria-hidden="true"/><span>{name}</span></NavLink>)}
+          </details>)}
           <div className="sidebar-secondary">
-            <NavLink to="/library" className="nav-item" title="My Library">
-              <Library size={17} />
-              <span>
-                My Library <small>{library.length || ""}</small>
-              </span>
-            </NavLink>
             {!collapsed && history.length > 0 && (
               <div className="recent">
                 <span className="section-label">Recent searches</span>
@@ -377,7 +377,7 @@ export default function App() {
               </div>
             )}
           </div>
-          </details></div>
+          </div>
         </aside>
         <main
           className={location.pathname === "/" ? "home-main" : ""}
@@ -430,7 +430,7 @@ export default function App() {
               <button className="workspace-avatar" aria-label="Workspace information" onClick={() => setStatus(true)}>S</button>
             </div>
           </header>
-          <Suspense
+          <ErrorBoundary key={location.pathname}><Suspense
             fallback={
               <div className="empty" role="status">
                 <LoaderCircle className="spin" size={24} />
@@ -486,7 +486,7 @@ export default function App() {
                 }
               />
             </Routes>
-          </Suspense>
+          </Suspense></ErrorBoundary>
         </main>
         {!["/chat-pdf", "/extract-data"].includes(location.pathname) && (
           <button
@@ -818,6 +818,9 @@ function ResearchPage() {
     setQ(query);
     setSource(provider);
     if (!query) {
+      setBusy(false);
+      setSelected([]);
+      setCompare(false);
       setResult(null);
       setError("");
       return;
@@ -846,7 +849,7 @@ function ResearchPage() {
         } else refreshHistory();
       })
       .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
+        if (!controller.signal.aborted) setError(e.message);
       })
       .finally(() => {
         if (!controller.signal.aborted) setBusy(false);
@@ -1989,13 +1992,12 @@ function TextTool({ kind }) {
   const detector = kind === "detector";
   const human = kind === "humanizer";
   const title = detector
-    ? "AI Detector"
+    ? "Writing Analysis"
     : human
-      ? "AI Humanizer"
+      ? "Writing Polish"
       : "Paraphraser";
   const transform = () => {
     setBusy(true);
-    setTimeout(() => {
       if (detector) {
         const words = wordCount(text),
           sentences = text.split(/[.!?]+/).filter((s) => s.trim()).length;
@@ -2006,7 +2008,7 @@ function TextTool({ kind }) {
             100,
         );
         setOutput(
-          `Text profile\n\n${words} words · ${sentences} sentences\n${avg} words per sentence on average\n${diversity}% unique words\n\n${avg > 25 ? "Your sentences are relatively long. Consider splitting some to improve readability." : "Your sentence length is generally concise."}\n\nAI authorship: Not determined. Text statistics cannot reliably distinguish AI writing from human writing. This demo does not make an authorship prediction.`,
+          `Text profile\n\n${words} words · ${sentences} sentences\n${avg} words per sentence on average\n${diversity}% unique words\n\n${avg > 25 ? "Your sentences are relatively long. Consider splitting some to improve readability." : "Your sentence length is generally concise."}\n\nAI authorship: Not determined. Text statistics cannot reliably distinguish AI writing from human writing. No authorship prediction is made.`,
         );
       } else {
         const replacements =
@@ -2052,7 +2054,6 @@ function TextTool({ kind }) {
           );
       }
       setBusy(false);
-    }, 300);
   };
   useEffect(() => {
     setOutput("");

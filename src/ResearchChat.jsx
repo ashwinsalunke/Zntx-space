@@ -1,3 +1,4 @@
+import { loadSavedChat } from "./saved-chat.js";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples } from "./tool-examples.js";
 import { wantsResearchGuide, guidePrompt, validateGuide } from "../shared/research-guide.js";
@@ -61,30 +62,19 @@ export default function ResearchChat() {
   }, []);
   useEffect(() => {
     if (!routeId || (routeId === id && turns.length)) return;
-    let active = true;
+    const controller = new AbortController();
     setLoading(true);
-    Promise.all([api("/api/records/chats"), api("/api/records/notes")])
-      .then(([chats, notes]) => {
-        if (!active) return;
-        const chat = chats.find((c) => c.id === routeId);
-        if (!chat)
-          throw Error("This research chat was not found in your workspace.");
+    loadSavedChat(routeId, api, controller.signal)
+      .then(({ chat, turns: savedTurns }) => {
+        if (controller.signal.aborted) return;
         setId(routeId);
         setTitle(chat.title);
-        setTurns(
-          (chat.turnIds || [])
-            .map((t) => notes.find((n) => n.id === t))
-            .filter(Boolean),
-        );
-        const lastTurn = notes.find(n => n.id === chat.turnIds?.at(-1));
-        setConversationMode(lastTurn?.guide ? "guide" : "auto");
-        setHistory(chats);
+        setTurns(savedTurns);
+        setConversationMode(savedTurns.at(-1)?.guide ? "guide" : "auto");
       })
-      .catch((e) => active && setError(e.message))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+      .catch((e) => !controller.signal.aborted && setError(e.message))
+      .finally(() => !controller.signal.aborted && setLoading(false));
+    return () => controller.abort();
   }, [routeId]);
   useEffect(() => {
     const initial = params.get("q");

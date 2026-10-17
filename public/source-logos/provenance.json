@@ -1,0 +1,47 @@
+[
+  {
+    "file": "zotero.png",
+    "source": "https://www.zotero.org/support/_media/logo/zotero_32x32x32.png",
+    "sha256": "08b8d237dfc3811baf1b42038c11f787caf8090345db773347dccc5b199d901b"
+  },
+  {
+    "file": "mendeley.ico",
+    "source": "https://dev.mendeley.com/images/favicon-2.ico",
+    "sha256": "511b98251a3d3e5ee2efb8bb1d5508177cb7e2eedc3e410bbba3b9cc14f09235"
+  },
+  {
+    "file": "pubmed.png",
+    "source": "https://cdn.ncbi.nlm.nih.gov/coreutils/nwds/img/favicons/favicon-192.png",
+    "sha256": "8bc8779faa06a0d4b4cded9702eb216e57e996c2f01562c755f85bd41f99decc"
+  },
+  {
+    "file": "scholar.ico",
+    "source": "https://scholar.google.com/favicon.ico",
+    "sha256": "8dac42076bd03098a771ac315fa277e0b70fa3030cc708554d74ed506fa3c2de"
+  },
+  {
+    "file": "google.ico",
+    "source": "https://www.google.com/favicon.ico",
+    "sha256": "6da5620880159634213e197fafca1dde0272153be3e4590818533fab8d040770"
+  },
+  {
+    "file": "arxiv.png",
+    "source": "https://arxiv.org/static/browse/0.3.4/images/icons/favicon-32x32.png",
+    "sha256": "5add8f07a3a7268c6690dfbfa3bd8cf84f527074b92eb3936d4bb8e010f9e60d"
+  },
+  {
+    "file": "python.png",
+    "source": "https://s3.dualstack.us-east-2.amazonaws.com/pythondotorg-assets/media/community/logos/python-logo-only.png",
+    "sha256": "4008a934b415c152bfa513be3e9b05de4212ae41549a27f2c6c8d41b3a24a4da"
+  },
+  {
+    "file": "grants.png",
+    "source": "https://www.grants.gov/_nuxt/grants-gov-logo-text.Bxb08h7s.png",
+    "sha256": "f433102b2e09083b22882eaa8eeaf0f7b86e8651f89f09ab00a8b9b5c442047e"
+  },
+  {
+    "file": "clinicaltrials.svg",
+    "source": "https://clinicaltrials.gov/assets/favicons/favicon.svg?v=2",
+    "sha256": "556dc1a62bd2155e506d0085de99641625bf91a57da4c9941561640365436cc8"
+  }
+]

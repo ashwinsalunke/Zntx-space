@@ -26,6 +26,8 @@ test('home guidance remembers replies, preserves failed input, saves/reloads and
     if (path === '/api/records/notes') return response(notes);
     if (path.startsWith('/api/records/notes/') && options.method === 'PUT') { notes.push(body); return response(body); }
     if (path.startsWith('/api/records/chats/') && options.method === 'PUT') { const i = chats.findIndex(c => c.id === body.id); if (i >= 0) chats[i] = body; else chats.push(body); return response(body); }
+    if (path.startsWith('/api/records/chats/')) return response(chats.find(c => c.id === path.split('/').at(-1)));
+    if (path.startsWith('/api/records/notes/')) return response(notes.find(n => n.id === path.split('/').at(-1)));
     if (path === '/api/ai/generate') {
       guideRequests++;
       if (failNext) { failNext = false; return new Response(JSON.stringify({ error: 'Private provider configuration detail' }), { status: 503 }); }

@@ -313,8 +313,11 @@ app.delete("/api/records/:collection/:id", async (req, res, next) => {
     next(e);
   }
 });
+// API typos must never fall through to the HTML application shell.
+app.use("/api", (req, res) => res.status(404).json({ error: "API endpoint not found." }));
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(root, "dist")));
+  app.use("/assets", (req, res) => res.status(404).type("text/plain").send("Asset not found."));
   app.get("/{*path}", (req, res) =>
     res.sendFile(path.join(root, "dist", "index.html")),
   );

@@ -12,6 +12,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY server ./server
+COPY shared ./shared
+COPY fixtures/docking ./fixtures/docking
 RUN mkdir -p /app/.data && chown node:node /app/.data
 USER node
 EXPOSE 5180
