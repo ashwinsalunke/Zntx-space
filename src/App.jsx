@@ -95,6 +95,7 @@ import SourceVerification, { PaperVerification } from "./SourceVerification.jsx"
 import { defaultResearchFilters, filterResearchPapers, normalizeResearchFilters } from "./research-filters.js";
 const PdfWorkspace = lazy(() => import("./PdfWorkspace.jsx"));
 const PharmaHub = lazy(() => import("./PharmaHub.jsx"));
+const DockingWorkspace = lazy(() => import("./DockingWorkspace.jsx"));
 const ResearchProjects = lazy(() => import("./ResearchProjects.jsx"));
 const Integrations = lazy(() => import("./Integrations.jsx"));
 const ResearchChat = lazy(() => import("./ResearchChat.jsx"));
@@ -124,9 +125,9 @@ const navigation = [
   ["/paraphraser", ScanText, "Paraphraser"],
   ["/citation-generator", Quote, "Citation Generator"],
   ["/extract-data", Database, "Extract Data"],
+  ["/docking", Atom, "Molecular Docking"],
   ["/ai-detector", ScanText, "AI Detector"],
   ["/ai-humanizer", Sparkles, "AI Humanizer"],
-  ["/integrations", Settings2, "Integrations"],
 ];
 function Logo({ full = true }) {
   return <BrandLogo compact={!full} />;
@@ -339,7 +340,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <details className="sidebar-utilities" open={["/extract-data", "/ai-detector", "/ai-humanizer", "/integrations", "/library"].includes(location.pathname) || undefined}><summary><MoreHorizontal size={18} /><span>More tools</span><ChevronDown size={14}/></summary>
+          <details className="sidebar-utilities" open={["/extract-data", "/docking", "/ai-detector", "/ai-humanizer", "/integrations", "/library"].includes(location.pathname) || undefined}><summary><MoreHorizontal size={18} /><span>More tools</span><ChevronDown size={14}/></summary>
             {navigation.slice(15).map(([path, Icon, label]) => <NavLink key={path} to={path} title={collapsed ? label : undefined} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.65}/><span>{label}</span></NavLink>)}
           <div className="sidebar-secondary">
             <NavLink to="/library" className="nav-item" title="My Library">
@@ -374,9 +375,6 @@ export default function App() {
             )}
           </div>
           </details></div>
-          <div className="sidebar-bottom">
-            <Link className="sidebar-connections" to="/integrations" title="Tools and connections"><span className="sidebar-connection-icon"><Settings2 size={20}/></span><span><b>Tools & connections</b><small>Manage your research sources<br/>and connected services.</small></span><ChevronRight size={17}/></Link>
-          </div>
         </aside>
         <main
           className={location.pathname === "/" ? "home-main" : ""}
@@ -444,6 +442,7 @@ export default function App() {
               />
               <Route path="/search" element={<ResearchPage />} />
               <Route path="/pharma" element={<PharmaHub />} />
+              <Route path="/docking" element={<DockingWorkspace />} />
               <Route path="/verification" element={<SourceVerification />} />
               <Route path="/projects" element={<ResearchProjects />} />
               <Route path="/research-workflow" element={<ResearchWorkflow />} />

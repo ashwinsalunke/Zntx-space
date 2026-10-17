@@ -25,6 +25,7 @@ import { createConnectorVault } from "./connector-vault.js";
 import { createConnectionsRouter } from "./connections.js";
 import { createGoogleSearchRouter } from "./google-search.js";
 import { createLibrarySyncRouter } from "./library-sync.js";
+import { createDockingRouter } from "./docking.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = express();
 app.disable("x-powered-by");
@@ -101,6 +102,18 @@ app.get("/api/config", (req, res) =>
 );
 app.use("/api/source-pdf", createPublicPdfRouter());
 app.use("/api/biomedical", biomedicalRouter);
+const dockingRouter = createDockingRouter();
+app.use("/api/docking", dockingRouter);
+// Stop native calculations if this server exits or the development watcher restarts it.
+process.once("exit", () => { dockingRouter.close(); });
+let dockingShutdown = false;
+for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => {
+  if (dockingShutdown) return;
+  dockingShutdown = true;
+  const forced = setTimeout(() => process.exit(1), 3000);
+  forced.unref();
+  dockingRouter.close().finally(() => { clearTimeout(forced); process.exit(0); });
+});
 app.use("/api/ai", aiRouter);
 app.use("/api/discovery", discoveryRouter);
 const imageStore = createImageStore();

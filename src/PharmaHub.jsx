@@ -572,6 +572,7 @@ export default function PharmaHub() {
           </div>
           <h1>Pharma research</h1>
           <p>From molecule to literature. Explore the evidence in one place.</p>
+          <Link className="btn" to="/docking"><FlaskConical size={16} /> Molecular docking</Link>
         </div>
         <span className="pharma-header-note">
           <span /> Public research sources

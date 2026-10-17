@@ -8,6 +8,8 @@ The [brand guide](docs/brand.md) documents the supplied identity, typography, in
 
 **Make slides** opens a presentation-first workflow with selectable research sources, editable slides, speaker notes, and cited references. Cloudflare Workers AI illustrations are optional and are generated only for explicit diagram or presentation actions. See [presentations and image setup](docs/presentations-and-images.md).
 
+**Molecular Docking** runs local AutoDock Vina calculations from prepared receptor and ligand PDBQT files, with a worked example, predicted poses, a 3D viewer, and downloadable scores and provenance. Run `npm run setup:docking` once on the server. See the [docking guide](docs/docking.md) for preparation requirements and interpretation limits.
+
 ## Start
 
 Requires Node 24 (or Node 22.13+).

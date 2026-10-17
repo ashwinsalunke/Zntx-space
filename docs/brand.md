@@ -25,7 +25,7 @@ Satoshi is loaded directly through the [official Fontshare API](https://www.font
 - Hover transitions take 200–220 ms, with a small lift and soft border/shadow change. The source rail, sidebar, and document use native smooth scrolling. Native touch and trackpad scrolling remain intact.
 - Reduced Motion disables animated scrolling, transitions, and decorative hover movement. Source-rail arrow actions also check the preference before scrolling.
 
-The reference's sample saved papers and paid-plan card are not fabricated in the app. Library panels use actual saved records; the sidebar card opens the existing tools and connections. Research watches run when requested and do not promise background notifications.
+The reference's sample saved papers and paid-plan card are not fabricated in the app. Library panels use actual saved records. The Tools & connections sidebar card and Integrations navigation entry were removed at the user's request; connection setup remains available through contextual setup links and its direct route. Research watches run when requested and do not promise background notifications.
 
 Existing workspace tokens, settings keys, stored records, and database identifiers retain their original internal names for compatibility with saved research. User-facing names and export metadata use scrapeTx.
 
