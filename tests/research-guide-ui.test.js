@@ -29,6 +29,7 @@ test('home guidance remembers replies, preserves failed input, saves/reloads and
     if (path === '/api/ai/generate') {
       guideRequests++;
       if (failNext) { failNext = false; return new Response(JSON.stringify({ error: 'Private provider configuration detail' }), { status: 503 }); }
+      if (JSON.parse(body.prompt).request === 'I am working on molecular docking') return response({ text: JSON.stringify({ reply: 'ScrapeTx helps you run docking predictions and inspect poses.', steps: ['Load the prepared example or upload PDBQT files.', 'Set the search box and inspect predicted poses and scores.'], topic: 'molecular docking', question: 'Do you have prepared files?', suggestions: ['Try the example'], actions: ['docking', 'papers'] }) });
       const topic = guideRequests > 1 ? 'bacteria antibiotic resistance' : '';
       return response({ text: JSON.stringify({ reply: topic ? 'Let’s focus your bacteria project on antibiotic resistance. Read relevant studies, compare their findings and build a cited literature draft.' : 'I can help you choose a question, find papers, compare evidence and create a cited draft.', topic, steps: ['Choose a research question.', 'Find papers and compare their results.'], question: topic ? 'Would you like a review or presentation?' : 'What would you like to research?', suggestions: topic ? ['A literature review', 'A presentation'] : ['Bacteria'], actions: topic ? ['papers', 'compare', 'workflow'] : ['workflow', 'library'] }), citations: [], generatedAt: new Date().toISOString() });
     }
@@ -72,6 +73,13 @@ test('home guidance remembers replies, preserves failed input, saves/reloads and
     assert.equal(button('Guide me').getAttribute('aria-pressed'), 'true');
     await click([...document.querySelectorAll('.research-guide a')].find(a => a.textContent.includes('Compare evidence')));
     await wait(() => calls.some(c => c.path === '/api/discovery/search?q=bacteria%20antibiotic%20resistance'), 'real evidence search');
+    await act(async () => root.unmount());
+    const searchesBefore = calls.filter(c => c.path.startsWith('/api/discovery/search')).length;
+    await mount('/chat?q=I%20am%20working%20on%20molecular%20docking&auto=1');
+    await wait(() => document.querySelector('.research-guide-actions a')?.textContent.includes('Open molecular docking'), 'docking guide action');
+    assert.equal(document.querySelector('.research-guide-actions a').getAttribute('href'), '/docking');
+    assert.ok(document.querySelector('.research-guide').textContent.includes('PDBQT'));
+    assert.equal(calls.filter(c => c.path.startsWith('/api/discovery/search')).length, searchesBefore, 'Task statement opens guidance, not a literal literature search');
   } finally {
     if (root) await act(async () => root.unmount());
     await vite.close(); globalThis.fetch = originalFetch; dom.window.close();

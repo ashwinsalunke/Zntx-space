@@ -1229,3 +1229,12 @@ test('research guide refuses invented navigation from the AI', async t => {
   assert.equal(response.status, 502);
   assert.equal((await response.json()).code, 'INVALID_AI_OUTPUT');
 });
+
+
+test('guide ensures docking navigation for an explicit docking task when the model returns generic actions', async t => {
+  const service = await serve(t, { env, fetchImpl: async () => completion(JSON.stringify({ reply: 'ScrapeTx can help you inspect docking predictions.', steps: ['Load the prepared example or provide prepared PDBQT files.', 'Run docking and inspect the poses and scores.'], topic: 'molecular docking', question: 'Do you have prepared files?', suggestions: ['Try the example'], actions: ['papers', 'compare', 'workflow'] })) });
+  const response = await service.post({ task: 'guide', prompt: JSON.stringify({ request: 'I am working on molecular docking', conversation: [] }) });
+  assert.equal(response.status, 200);
+  const result = JSON.parse((await response.json()).text);
+  assert.deepEqual(result.actions, ['docking', 'papers', 'compare']);
+});

@@ -14,6 +14,6 @@ export default function ResearchGuideReply({ guide, onReply, busy }) {
     </div>}
     {guide.question && <p className="research-guide-question">{guide.question}</p>}
     <div className="research-guide-suggestions">{guide.suggestions.map(reply => <button className="btn" key={reply} disabled={busy} onClick={() => onReply(reply)}>{reply}</button>)}</div>
-    <small className="research-guide-note">Planning your next step. Choose Find papers to retrieve sources, or keep talking below.</small>
+    <small className="research-guide-note">Choose a tool above to continue your project, or keep talking below.</small>
   </section>;
 }

@@ -1,5 +1,5 @@
 import express from "express";
-import { GUIDE_INSTRUCTIONS } from "../shared/research-guide.js";
+import { GUIDE_INSTRUCTIONS, guideRequest, prioritizeGuideAction } from "../shared/research-guide.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { WORKFLOW_SCHEMAS, validateWorkflowOutput } from "./workflow-output.js";
 
@@ -560,6 +560,9 @@ function validatedResearchResponse(config, payload, input) {
   if (WORKFLOW_SCHEMAS[input.task]) {
     try {
       text = validateWorkflowOutput(input.task, text);
+      if (input.task === "guide") {
+        text = JSON.stringify(prioritizeGuideAction(JSON.parse(text), guideRequest(input.prompt)));
+      }
     } catch (failure) {
       throw new AiError(502, "INVALID_AI_OUTPUT", failure.message);
     }

@@ -19,3 +19,9 @@ Guidance is project planning, not scientific findings. Find papers and Compare e
 ## Verification
 
 Regression coverage includes help-versus-search intent, bounded contextual follow-ups, route encoding, rejection of invented actions, provider schema and instructions, failed-request input retention, persisted conversation reload, and navigation from guidance to an actual evidence search. Live local AI checks exercise the introduction and a bacteria-to-microbiome follow-up. Browser visual inspection depends on local browser access being enabled.
+
+## Task-aware navigation
+
+Personal task statements such as “I am working on molecular docking” open guidance automatically. The assistant explains the task, the app's relevant capabilities, prerequisites and outputs. Recognized task requests receive the matching tool as the first button even if the AI returns generic actions. The user opens the tool deliberately after reading the guidance.
+
+The current request determines this priority; older conversation subjects cannot override it. Explicit outputs take precedence over their subjects: “Create slides about molecular docking” opens presentation tools, while “Find papers on molecular docking” offers literature search. Bare scientific keywords and study-comparison questions retain their normal literature search behavior.
