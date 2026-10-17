@@ -1,3 +1,4 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -681,19 +682,8 @@ export default function PharmaHub() {
               {busy ? "Searching…" : "Search"}
             </Button>
           </form>
-          <div className="pharma-search-examples">
-            <span>Try a search</span>
-            {tool.examples.map((example) => (
-              <button
-                key={example}
-                onClick={() => search(example)}
-                disabled={busy}
-              >
-                {example}
-                <ArrowRight size={12} aria-hidden="true" />
-              </button>
-            ))}
-          </div>
+          <PromptSuggestions key={tab} examples={tool.examples} value={input} onChoose={setInput} disabled={busy} inputId="pharma-query" />
+
         </div>
         {error && (
           <div role="alert" className="pharma-error">

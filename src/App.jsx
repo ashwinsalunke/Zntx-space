@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples } from "./tool-examples.js";
 import { wantsResearchGuide } from "../shared/research-guide.js";
 import { ImageGenerator } from "./GeneratedImage.jsx";
 import SourcePdfReader, { pdfReaderLink } from "./SourcePdfReader.jsx";
@@ -905,20 +907,9 @@ function ResearchPage() {
         setSource={setSource}
         busy={busy}
       />
+      <PromptSuggestions key={source} examples={source === "pubmed" || source === "europepmc" ? toolExamples.pubmed : toolExamples.search} value={q} onChoose={setQ} disabled={busy} inputId="research-query" />
       {!query && (
         <>
-          <div className="search-presets">
-            <span className="muted small">Try searching for:</span>
-            {[
-              "How does climate change impact biodiversity?",
-              "Applications of machine learning in healthcare",
-            ].map((s) => (
-              <button key={s} onClick={() => setParams({ q: s, source })}>
-                {s}
-                <ArrowUp size={14} />
-              </button>
-            ))}
-          </div>
           {history.length > 0 && (
             <div className="search-history">
               <h3>
@@ -1524,6 +1515,7 @@ function Writer() {
           <PenLine size={19} /> AI Writer
         </h2>
         <p className="small muted">Your ideas, with a little structure.</p>
+        <PromptSuggestions examples={toolExamples.writer} value={topic} onChoose={setTopic} disabled={busy} />
         <label className="field-label">
           What are you writing about?
           <textarea
@@ -1726,6 +1718,7 @@ function Topics() {
         <h1>Find your next research question.</h1>
         <p>Start with an idea. Explore where it could take you.</p>
       </div>
+      <PromptSuggestions examples={toolExamples.topics} value={topic} onChoose={setTopic} />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -1851,6 +1844,7 @@ function Citations() {
         <h1>Citation Generator</h1>
         <p>Find articles and books. Follow every reference to its original source.</p>
       </div>
+      <PromptSuggestions examples={toolExamples.citations} value={q} onChoose={setQ} disabled={busy} />
       <form className="search-form" onSubmit={search}>
         <Search size={18} />
         <input
@@ -2079,6 +2073,7 @@ function TextTool({ kind }) {
               : "Find a clearer way to say it."}
         </p>
       </div>
+      <PromptSuggestions examples={detector ? toolExamples.detector : toolExamples.paraphraser} value={text} onChoose={value => { setText(value); setOutput(""); }} inputId="source-text" title="Try sample text" hint="Sample wording for practice. Replace it with your own text when ready." />
       <div className="text-tool">
         <div className="text-tool-controls">
           <div className="tabs">
@@ -2195,17 +2190,6 @@ function TextTool({ kind }) {
           onResult={(r) => setOutput(r.text)}
         />
       )}
-      <button
-        className="example-link"
-        onClick={() => {
-          setText(
-            "In order to improve the quality of research, we utilize a significant number of published sources. Furthermore, it is important to note that findings should be assessed prior to drawing conclusions.",
-          );
-          setOutput("");
-        }}
-      >
-        Try an example <ArrowRight size={13} />
-      </button>
     </section>
   );
 }
@@ -2247,6 +2231,7 @@ function DiagramTool({ slides = false }) {
             : "Create a visual flowchart or scientific process diagram. Download it as PNG or SVG."}
         </p>
       </div>
+      <PromptSuggestions examples={slides ? toolExamples.presentation : toolExamples.diagrams} value={topic} onChoose={setTopic} />
       {!slides && <label className="diagram-output-choice">Output <select value={diagramMode} onChange={e=>setDiagramMode(e.target.value)}><option value="flowchart">Editable flowchart</option><option value="image">AI-generated image</option></select></label>}
       <form
         className="search-form"

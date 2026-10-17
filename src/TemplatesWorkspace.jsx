@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples } from "./tool-examples.js";
 import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search, BookOpen, GraduationCap, Library, FileText, ArrowRight, ArrowUpRight, Building2, LockOpen, SlidersHorizontal, X, Download, ChevronDown, ChevronUp } from "lucide-react";
@@ -78,6 +80,7 @@ export default function TemplatesWorkspace() {
     </aside>
     <section className="tc-main" aria-label="Writing templates">
       <div className="tc-search-row"><label className="tc-search"><Search size={20} aria-hidden="true" /><span className="sr-only">Search templates</span><input value={filters.query} placeholder="Search templates, topics, or publishers" onChange={(event) => setFilter("q", event.target.value)} />{filters.query && <button aria-label="Clear template search" onClick={() => setFilter("q", "")}><X size={17} /></button>}</label><Button icon={SlidersHorizontal} className="tc-filter-toggle" onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters} aria-controls="template-filters">Filters{selected.length > 0 && ` (${selected.length})`}</Button></div>
+      <PromptSuggestions examples={toolExamples.templates} value={filters.query} onChoose={q => setFilter("q", q)} title="Explore a template" hint="Choose a category to filter the catalog." />
       <div className="tc-results-heading"><p role="status" aria-live="polite">{selected.length || filters.query ? `${rows.length} of ${templates.length} templates` : `Showing all ${templates.length} templates`}</p>{(selected.length > 0 || filters.query) && <button className="tc-reset" onClick={() => setParams({}, { replace: true })}>Clear all</button>}</div>
       {selected.length > 0 && <div className="tc-applied" aria-label="Applied template filters">{selected.map(({ key, value }) => <button key={key + value} aria-label={`Remove ${value} filter`} onClick={() => remove(key, value)}>{value}<X size={13} /></button>)}</div>}
       <p className="tc-catalog-note">Editable writing starters. Publisher and university entries include original guidance to check before submission.</p>

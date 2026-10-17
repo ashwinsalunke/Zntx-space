@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolQuestions } from "./tool-examples.js";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -139,6 +141,7 @@ export default function Integrations() {
           Refresh status
         </Button>
       </div>
+      <PromptSuggestions examples={toolQuestions.integrations} title="How can this help?" hint="Choose a question for guidance." />
       {error && (
         <p className="integration-error" role="alert">
           {error}

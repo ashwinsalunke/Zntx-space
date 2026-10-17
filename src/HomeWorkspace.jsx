@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples, sourceExamples } from "./tool-examples.js";
 import { wantsResearchGuide } from "../shared/research-guide.js";
 import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -70,6 +72,7 @@ export default function HomeWorkspace() {
         </div>
         <div className="studio-composer-frame"><Composer value={value} setValue={setValue} onSubmit={() => submit()} mode={mode}
           setMode={setMode} researchMode={researchMode} setResearchMode={(id) => {setResearchMode(id);setSource("deep");}} placeholder={source === "deep" ? "Ask a research question, compare studies, or explore a drug…" : active.placeholder} /></div>
+        <PromptSuggestions key={source + mode} examples={mode === "diagram" ? toolExamples.diagrams : mode === "slides" ? toolExamples.presentation : mode === "draft" ? toolExamples.writer : mode === "review" ? toolExamples.workflow : source === "deep" ? toolExamples.home : sourceExamples[source]} value={value} onChoose={["zotero", "mendeley"].includes(source) && mode === "search" ? undefined : setValue} hint={["zotero", "mendeley"].includes(source) && mode === "search" ? "Choose a question for help with your reference library." : "Choose one to fill the input, then edit it or run the tool."} />
         <div className="home-guide-start"><Link to="/chat?guide=1&q=What%20can%20scrapeTx%20help%20me%20with%3F">What can scrapeTx help me with? <ArrowRight size={14} aria-hidden="true" /></Link><Link to="/chat?guide=1&q=I%20want%20to%20start%20a%20research%20project">Help me start a research project <ArrowRight size={14} aria-hidden="true" /></Link></div>
         <div className="home-source-heading"><span>USE</span><p>{active.description}</p>
           <div className="source-rail-controls"><button type="button" onClick={() => setAllSources(!allSources)} aria-expanded={allSources}>{allSources ? "Collapse" : "Show all"}</button>

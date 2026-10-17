@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples } from "./tool-examples.js";
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -94,6 +96,7 @@ function TaskDialog({ item, initialPreview, onClose }) {
           <form className="workflow-task-form" onSubmit={run}>
             <label htmlFor="workflow-task-input">{isAI ? "Your task and source material" : ["pdf", "extract"].includes(item.route) ? "Question for your PDF" : "Research question or topic"}{!needsInput(item) && <span>Optional</span>}</label>
             <textarea id="workflow-task-input" rows={isAI ? 7 : 4} maxLength={isAI ? 18000 : 1500} value={input} onChange={(event) => { setInput(event.target.value); setConfirmedInput(""); }} placeholder={isAI ? item.example : "Describe the question for this task…"} required={needsInput(item)} autoFocus />
+            <PromptSuggestions examples={item.example ? [item.example] : toolExamples.workflow} value={input} onChoose={value => { setInput(value); setConfirmedInput(""); }} title="Try this task" />
             {isAI && (
               <>
                 <label className="workflow-source-option"><input type="checkbox" checked={useSources} onChange={(event) => { setUseSources(event.target.checked); setConfirmedInput(""); }} disabled={!eligibleSources.length} /><span>Use saved source abstracts <small>{eligibleSources.length ? `${eligibleSources.length} available · up to 16 sources` : "Save papers with abstracts to My Library first"}</small></span></label>
@@ -154,6 +157,7 @@ export default function AgentGallery() {
           </div>
         </aside>
         <div className="workflow-gallery-content">
+          <PromptSuggestions examples={toolExamples.agents} value={query} onChoose={q => update("q", q)} title="Explore research tasks" hint="Choose a task keyword to filter the gallery." />
           <div className="workflow-search-field"><Search size={20} aria-hidden="true" /><input aria-label="Search all research agents" placeholder="Search tasks, tools, or research areas…" value={query} onChange={(event) => update("q", event.target.value)} />{query && <button type="button" onClick={() => update("q", "")} aria-label="Clear workflow search"><X size={17} aria-hidden="true" /></button>}</div>
           <div className="workflow-results-bar"><p role="status"><strong>{workflows.length}</strong> of {AGENT_WORKFLOWS.length} workflows{category !== "All workflows" && <span> · {category}</span>}</p>{activeFilters && <button type="button" onClick={clear}>Clear filters</button>}</div>
           <div className="workflow-card-grid">

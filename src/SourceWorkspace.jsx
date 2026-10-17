@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { sourceExamples } from "./tool-examples.js";
 import PersonalLibrarySources from "./PersonalLibrarySources.jsx";
 import { pdfReaderLink } from "./SourcePdfReader.jsx";
 import React, { useState, useEffect, useRef } from "react";
@@ -165,6 +167,7 @@ export default function SourceWorkspace() {
               : "Live source records"}
         </span>
       </div>
+      {personal && <PromptSuggestions examples={sourceExamples[sourceId]} title="Not sure where to start?" hint="Ask the research guide for help with your references." />}
       {personal ? (
         <>
           <PersonalLibrarySources provider={sourceId} />
@@ -205,6 +208,7 @@ export default function SourceWorkspace() {
         </>
       ) : (
         <>
+          <PromptSuggestions key={sourceId} examples={sourceExamples[sourceId]} value={query} onChoose={setQuery} disabled={busy} />
           <form className="search-form source-search" onSubmit={submit}>
             <Search size={19} />
             <input

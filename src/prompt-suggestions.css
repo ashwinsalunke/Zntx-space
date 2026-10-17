@@ -1,0 +1,16 @@
+.prompt-suggestions { margin: 16px 0 24px; text-align: left; min-width: 0; }
+.prompt-suggestions-heading { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin-bottom: 10px; }
+.prompt-suggestions-heading strong { font-size: 14px; font-weight: 700; color: var(--text); }
+.prompt-suggestions-heading > span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.prompt-suggestions-items { display: flex; flex-wrap: wrap; gap: 8px; }
+.prompt-suggestions-items > button, .prompt-suggestions-items > a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; border: 1px solid var(--line, #dddcd6); border-radius: 8px; padding: 10px 12px; background: var(--surface, #fff); color: var(--text); font: inherit; font-size: 14px; font-weight: 500; line-height: 1.5; text-align: left; text-decoration: none; cursor: pointer; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.prompt-suggestions-items > button:hover, .prompt-suggestions-items > a:hover { border-color: var(--text); box-shadow: 0 2px 7px #17191d0a; }
+.prompt-suggestions-items svg { flex-shrink: 0; }
+.prompt-suggestions-items span { overflow-wrap: anywhere; }
+.prompt-suggestions button:disabled { opacity: .5; cursor: not-allowed; }
+.prompt-suggestions button:focus-visible, .prompt-suggestions a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.prompt-suggestions-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+.prompt-suggestions-confirm button { font: inherit; padding: 10px 12px; min-height: 44px; border: 1px solid var(--line, #dddcd6); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+.prompt-suggestions-confirm button:first-of-type { background: var(--text); color: var(--surface); }
+@media (max-width: 600px) { .prompt-suggestions-items { flex-direction: column; } }
+@media (prefers-reduced-motion: reduce) { .prompt-suggestions-items > button, .prompt-suggestions-items > a { transition: none; } }

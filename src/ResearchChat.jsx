@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples } from "./tool-examples.js";
 import { wantsResearchGuide, guidePrompt, validateGuide } from "../shared/research-guide.js";
 import ResearchGuideReply from "./ResearchGuideReply.jsx";
 import React, { useEffect, useRef, useState } from "react";
@@ -427,6 +429,7 @@ export default function ResearchChat() {
             </Button>
           </div>
         )}
+        <PromptSuggestions examples={conversationMode === "search" ? toolExamples.search : toolExamples.chat} value={query} onChoose={setQuery} disabled={busy || loading} />
         <div className="research-conversation-mode" role="group" aria-label="Conversation mode">
           <button type="button" aria-pressed={conversationMode === "guide"} onClick={() => setConversationMode("guide")} disabled={busy}>Guide me</button>
           <button type="button" aria-pressed={conversationMode === "search"} onClick={() => setConversationMode("search")} disabled={busy}>Find papers</button>

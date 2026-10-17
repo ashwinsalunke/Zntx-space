@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples } from "./tool-examples.js";
 import React, { useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import * as pdfjs from "pdfjs-dist";
@@ -231,6 +233,8 @@ export default function PdfWorkspace({ extract = false }) {
             {error}
           </p>
         )}
+        <PromptSuggestions examples={extract ? toolExamples.extract : toolExamples.pdf} value={extract ? columns : question} onChoose={extract ? setColumns : setQuestion} disabled={busy} title={extract ? "Try an extraction layout" : "Questions to ask your paper"} hint="Choose an example, then upload a PDF or try the sample document." />
+        {(extract ? columns : question) && <p className="small muted">{extract ? "Fields" : "Question"} ready: {extract ? columns : question}</p>}
         <div className="sample-pdf">
           <span>Or</span>
           <button onClick={sample}>
@@ -383,6 +387,7 @@ export default function PdfWorkspace({ extract = false }) {
                   maxLength={1500}
                 />
               </label>
+              <PromptSuggestions examples={toolExamples.extract} value={columns} onChoose={setColumns} title="Try an extraction layout" />
               <AiPanel
                 task="explain"
                 prompt={`Extract these evidence fields as a Markdown table from the supplied document pages: ${columns}. Include page citations for every extracted value. Write 'Not reported in supplied pages' for missing values. Do not infer sample sizes, treatment effects, or study design absent in the source.`}
@@ -463,16 +468,6 @@ export default function PdfWorkspace({ extract = false }) {
                       Ask a question to find matching passages, or start with a
                       prompt below.
                     </p>
-                    {[
-                      "Summarize this document",
-                      "What are the main findings?",
-                      "What are the limitations?",
-                    ].map((q) => (
-                      <button key={q} onClick={() => ask(q)}>
-                        {q}
-                        <ArrowUp size={14} />
-                      </button>
-                    ))}
                   </div>
                 )}
                 {messages.map((m, i) => (
@@ -504,6 +499,7 @@ export default function PdfWorkspace({ extract = false }) {
                   </div>
                 )}
               </div>
+              <PromptSuggestions examples={toolExamples.pdf} value={question} onChoose={setQuestion} disabled={answering} title="Ask about this paper" />
               <form
                 className="pdf-question"
                 onSubmit={(e) => {

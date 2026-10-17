@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolQuestions, toolExamples } from "./tool-examples.js";
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -98,6 +100,7 @@ function CreateProject({ onClose, onCreate, initialQuestion = "" }) {
           placeholder="What question will this review answer?"
           maxLength={5000}
         />
+        <PromptSuggestions examples={toolExamples.workflow} value={question} onChoose={setQuestion} inputId="project-new-question" disabled={busy} title="Example review questions" />
         <label htmlFor="project-new-description">Project notes</label>
         <textarea
           id="project-new-description"
@@ -515,6 +518,7 @@ export default function ResearchProjects() {
   const state = statuses[selectedId];
   return (
     <section className="page projects-page">
+      <PromptSuggestions examples={toolQuestions.projects} title="Plan your review" hint="Choose a question for help organizing and screening papers." />
       {loading ? (
         <div className="projects-loading" role="status">
           <LoaderCircle size={24} className="spin" aria-hidden="true" />

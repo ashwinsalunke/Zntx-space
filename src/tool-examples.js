@@ -1,0 +1,51 @@
+// Authored examples, never retrieved evidence or generated findings.
+export const toolExamples = {
+  home: ['I want to research antibiotic resistance in bacteria', 'Help me create a literature review', 'I am working on molecular docking'],
+  search: ['Bacterial biofilms and antibiotic resistance', 'Microplastics in freshwater ecosystems', 'Machine learning for drug discovery'],
+  pubmed: ['Gut microbiome and type 2 diabetes', 'Antibiotic resistance in bacterial biofilms', 'GLP-1 cardiovascular outcomes'],
+  chat: ['Help me narrow my research question about bacteria', 'How can scrapeTx help me compare evidence?', 'I want to make a presentation from research papers'],
+  workflow: ['What does published research report about bacterial biofilms and antibiotic resistance?', 'How do microplastics affect freshwater ecosystems?', 'What are the limitations of AI-assisted drug discovery?'],
+  presentation: ['Create a presentation summarizing research on wildlife rehabilitation', 'Explain bacterial antibiotic resistance using published studies', 'Present the evidence on gut microbiomes and human health'],
+  writer: ['A literature review of bacterial biofilms and antibiotic resistance', 'An introduction to sustainable drug manufacturing', 'A research proposal about microplastics in drinking water'],
+  topics: ['Bacterial biofilms', 'Sustainable pharmaceutical manufacturing', 'Artificial intelligence in education'],
+  diagrams: ['Generate a flowchart illustrating the chemical process of photosynthesis', 'Create a concept map of mechanisms of antibiotic resistance', 'Diagram the steps of a literature review'],
+  citations: ['Antibiotic resistance in bacterial biofilms', 'Semaglutide cardiovascular outcomes', 'Molecular Biology of the Cell'],
+  pdf: ['What question does this study investigate?', 'What methods and limitations do the authors describe?', 'Which findings are supported by the results?'],
+  extract: ['Study design, Sample size, Intervention, Outcomes, Limitations', 'Compound, Target, Assay, Reported activity, Source passage', 'Research question, Methods, Main findings, Evidence gaps'],
+  assistant: ['Where do the selected studies agree or disagree?', 'What limitations should I mention?', 'Which claims need stronger supporting evidence?'],
+  templates: ['Literature review', 'Research proposal', 'Pharmacology'],
+  agents: ['Literature review', 'Search strategy', 'Manuscript'],
+  paraphraser: [
+    { label: 'Simplify academic wording', value: 'The objective of this review is to evaluate the methods used in the selected studies and identify areas where further evidence is needed.' },
+    { label: 'Clarify a limitation', value: 'Because the studies used different methods and populations, their results should be compared carefully.' },
+  ],
+  detector: [
+    { label: 'Try a sample paragraph', value: 'This review compares published research on a defined topic. We considered the methods used in each study, the reported outcomes, and the limitations described by the authors. These observations provide a starting point for further reading.' },
+  ],
+  verification: ['10.1056/NEJMoa2307563', 'Semaglutide and Cardiovascular Outcomes in Obesity without Diabetes'],
+  drugCheck: ['Ozempic', 'Metformin', 'Ibuprofen'],
+  drugs: ['Metformin', 'Semaglutide', 'Ibuprofen'],
+  trials: ['GLP-1 obesity', 'Breast cancer', 'Alzheimer disease'],
+  safety: ['Metformin', 'Atorvastatin', 'Ozempic'],
+};
+export const sourceExamples = {
+  deep: toolExamples.search, pubmed: toolExamples.pubmed,
+  scholar: ['Bacterial biofilms antibiotic resistance review', 'Wildlife rehabilitation outcomes', 'Machine learning drug discovery review'],
+  arxiv: ['Protein structure prediction', 'Graph neural networks molecular property prediction', 'Explainable machine learning'],
+  python: ['biopython', 'pandas', 'scikit-learn'],
+  grants: ['Antimicrobial resistance', 'Environmental health', 'Biomedical research'],
+  uploaded: toolExamples.pdf, trials: toolExamples.trials,
+  google: ['WHO antimicrobial resistance fact sheet', 'NIH microbiome research', 'NCBI PubMed search guide'],
+  patents: ['Drug delivery nanoparticles', 'Antimicrobial coating', 'Controlled release formulation'],
+  datasets: ['Human gut microbiome', 'Water quality', 'Drug response'],
+  zotero: ['How do I import my Zotero references?', 'How can I organize my saved papers?'],
+  mendeley: ['How do I import my Mendeley references?', 'How can I read an available PDF from my library?'],
+};
+export const toolQuestions = {
+  docking: ['How do I try the prepared molecular docking example?', 'What files do I need for molecular docking?', 'How can I inspect docking poses and export results?'],
+  library: ['How do I save papers and organize them into collections?', 'How do I import references and export a bibliography?', 'How can I keep notes linked to my sources?'],
+  projects: ['How do I start a systematic review project?', 'How can I record paper screening decisions?', 'How do I organize evidence for my research question?'],
+  watches: ['How can I check for new papers on my topic?', 'How do I create a clinical-trial research watch?', 'How can I save a research watch summary?'],
+  integrations: ['Which research tools can help with my project?', 'How can I use Google Scholar in scrapeTx?', 'How do I bring my reference library into scrapeTx?'],
+  reader: ['How can I ask questions about an accessible PDF?', 'How do I save a paper with its original source link?', 'How can I download an available research PDF?'],
+};

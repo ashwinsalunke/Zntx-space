@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolQuestions } from "./tool-examples.js";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Atom,
@@ -388,6 +390,7 @@ export default function DockingWorkspace() {
           Pharma research <ExternalLink size={14} aria-hidden="true" />
         </Link>
       </header>
+      <PromptSuggestions examples={toolQuestions.docking} title="New to molecular docking?" hint="Choose a question to get setup guidance. No calculation starts." />
       <div className="docking-intro">
         <FlaskConical size={22} aria-hidden="true" />
         <p>

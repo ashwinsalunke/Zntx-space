@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolExamples } from "./tool-examples.js";
 import { GeneratedImage, ImageGenerator } from "./GeneratedImage.jsx";
 import {
   searchPresentationSources,
@@ -1007,6 +1009,7 @@ export default function ResearchWorkflow({ presentation = false }) {
                 onChange={(event) => update({ topic: event.target.value })}
                 placeholder="e.g. How do GLP-1 medicines affect cardiovascular outcomes?"
               />
+              <PromptSuggestions examples={presentationMode ? toolExamples.presentation : toolExamples.workflow} value={state.topic} onChoose={topic => update({ topic })} disabled={!!busy || !!state.sources.length} inputId="rf-topic" />
               <fieldset
                 style={presentationMode ? { display: "none" } : undefined}
                 className="rf-template-options"
@@ -2033,6 +2036,7 @@ export default function ResearchWorkflow({ presentation = false }) {
                     onChange={(e) => setAssistQuestion(e.target.value)}
                     placeholder="What are the main limitations?"
                   />
+                  <PromptSuggestions examples={toolExamples.assistant} value={assistQuestion} onChoose={setAssistQuestion} disabled={!!busy} inputId="rf-assistant-question" title="Ask about your selected evidence" />
                   <Button
                     primary
                     disabled={

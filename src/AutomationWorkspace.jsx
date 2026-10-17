@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolQuestions } from "./tool-examples.js";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AlertCircle, Bookmark, BookOpen, CheckCircle2, Clock3, Database, ExternalLink, FlaskConical, LoaderCircle, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
@@ -43,6 +45,7 @@ function NewWatch({ initialKind, onClose, onCreate }) {
       <input id="rw-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required autoFocus disabled={busy} />
       <label htmlFor="rw-query">Search query</label>
       <textarea id="rw-query" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={300} rows={3} required disabled={busy} aria-describedby="rw-query-help" />
+      <PromptSuggestions key={kind} examples={[watchDefinition(kind).example]} value={query} onChoose={setQuery} disabled={busy} inputId="rw-query" />
       <small id="rw-query-help">{kind === "literature" ? "PubMed query syntax is supported, including AND, OR, and date fields." : "Use a topic, drug, condition, or source identifier."}</small>
       <label className="rw-checkbox"><input type="checkbox" checked={saveDigest} onChange={(event) => setSaveDigest(event.target.checked)} disabled={busy} /><span>Save each completed check as a linked note in My Library</span></label>
       <div className="rw-form-note"><Clock3 size={16} aria-hidden="true" /><span>Suggested cadence: weekly. Checks run only when you click Run check.</span></div>
@@ -150,6 +153,7 @@ export default function AutomationWorkspace() {
   const busy = Boolean(runningId || savingDigestId);
   return <section className="rw-page">
     <header className="rw-heading"><div><p className="rw-kicker">REPEATABLE RESEARCH</p><h1>Automations</h1><p>Save a watch. Check the source. Review what changed.</p></div><Button primary icon={Plus} onClick={() => setCreateKind("literature")} disabled={busy || loading}>New research watch</Button></header>
+    <PromptSuggestions examples={toolQuestions.watches} title="Ideas for a research watch" hint="Choose a question to learn how on-demand checks work." />
     <div className="rw-demand-note"><Clock3 size={18} aria-hidden="true" /><p><strong>Runs on demand.</strong> Weekly is a suggested cadence. Background checks and notifications are not scheduled.</p></div>
     <section className="rw-recommendations" aria-labelledby="rw-recommended-heading"><div className="rw-section-heading"><h2 id="rw-recommended-heading">Recommended watches</h2><span>Choose a starting point</span></div><div className="rw-recommendation-grid">{watchKinds.map((kind) => <article key={kind.id}><SourceIcon kind={kind.id} /><h3>{kind.label}</h3><p>{kind.description}</p><button type="button" onClick={() => setCreateKind(kind.id)} disabled={busy || loading}>Set up watch <Plus size={15} aria-hidden="true" /></button></article>)}</div></section>
     <div className="rw-section-heading rw-saved-heading"><h2>Your watches <span>{watches.length}</span></h2><Button icon={RefreshCw} disabled={busy || loading} onClick={load}>Refresh</Button></div>

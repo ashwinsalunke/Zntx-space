@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolQuestions } from "./tool-examples.js";
 import { GeneratedImage } from "./GeneratedImage.jsx";
 import DiagramFigure from "./DiagramFigure.jsx";
 import { isDiagram } from "./diagram-layout.js";
@@ -281,6 +283,7 @@ export default function LibraryWorkspace() {
   }
   return <section className="lw-page">
     <header className="lw-heading"><div><span className="lw-eyebrow"><Library size={15} />MY LIBRARY</span><h1>My Library</h1><p>Saved sources, reading notes, and research searches.</p></div><Button primary icon={Plus} onClick={() => setNoteEditor({})}>New note</Button></header>
+    <PromptSuggestions examples={toolQuestions.library} title="Make the most of your library" hint="Choose a question for step-by-step guidance." />
     <div className="lw-layout">
       <aside className="lw-collections" aria-label="Library collections">
         <button className={`lw-collection ${!activeFolder ? "active" : ""}`} aria-pressed={!activeFolder} onClick={() => setActiveFolder("")}><Library size={17} /><span>All research</span><small>{items.length}</small></button>

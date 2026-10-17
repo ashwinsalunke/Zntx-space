@@ -1,3 +1,5 @@
+import PromptSuggestions from "./PromptSuggestions.jsx";
+import { toolQuestions } from "./tool-examples.js";
 import React, { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Download, ExternalLink, LoaderCircle, ArrowLeft } from "lucide-react";
@@ -107,6 +109,7 @@ export default function SourcePdfReader() {
           )}
         </div>
       </div>
+      <PromptSuggestions examples={toolQuestions.reader} title="How can this help?" hint="Choose a question for guidance." />
       {busy && (
         <div className="source-loading" role="status">
           <LoaderCircle className="spin" />

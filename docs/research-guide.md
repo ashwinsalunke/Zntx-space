@@ -25,3 +25,11 @@ Regression coverage includes help-versus-search intent, bounded contextual follo
 Personal task statements such as “I am working on molecular docking” open guidance automatically. The assistant explains the task, the app's relevant capabilities, prerequisites and outputs. Recognized task requests receive the matching tool as the first button even if the AI returns generic actions. The user opens the tool deliberately after reading the guidance.
 
 The current request determines this priority; older conversation subjects cannot override it. Explicit outputs take precedence over their subjects: “Create slides about molecular docking” opens presentation tools, while “Find papers on molecular docking” offers literature search. Bare scientific keywords and study-comparison questions retain their normal literature search behavior.
+
+## Tool-specific examples
+
+Every main workspace now has authored example inputs or setup questions. The reusable `PromptSuggestions` component and `src/tool-examples.js` catalogue cover home/source selection, literature search, chat, paper and presentation workflows, writing, topics, diagrams, citations, text editing, PDFs and extraction, source checks, biomedical tabs, templates, agents and individual source connectors. Docking, projects, library, watches and PDF reading provide relevant questions that open the research guide.
+
+Selecting an input example updates React state without submitting the form, running a search, starting a calculation or generating AI output. Existing nonempty text is protected by an inline choice to replace it or keep it. Examples inside a form use `type="button"`. Catalog examples filter local listings, and setup-question links explicitly open guidance. Source/tab changes show relevant examples; disabled or running workflows keep their input examples disabled. PDF question and field examples can be selected before upload and carried into the sample/loaded document.
+
+The examples are starting points, not research findings. Short keywords are used for sources that expect names or identifiers (such as compounds or Python packages). Longer questions are used for research planning and synthesis. Adding a new tool should include a matching catalogue entry and direct state callback, or a clearly labelled guidance link if the tool needs files or setup.
