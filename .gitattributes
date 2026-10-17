@@ -1,0 +1,2 @@
+# Keep the official fixed-width molecular fixtures byte-for-byte, including padding.
+fixtures/docking/*.pdbqt -whitespace
