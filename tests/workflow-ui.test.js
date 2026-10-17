@@ -54,7 +54,8 @@ test(
     let delayedAI = null,
       delayNext = false,
       failSaves = false,
-      failImages = false;
+      failImages = false,
+      metadataFirst = false;
     const response = (value, status = 200) =>
       new Response(JSON.stringify(value), {
         status,
@@ -107,7 +108,13 @@ test(
             {
               id: "a",
               title: "First cardiovascular study",
-              abstract: "A reported trial result.",
+              abstract: metadataFirst ? "" : "A reported trial result.",
+              ...(metadataFirst
+                ? {
+                    snippet: "A Scholar search description, not an abstract.",
+                    source: "Google Scholar",
+                  }
+                : {}),
               doi: "10.1234/a",
               year: 2024,
             },
@@ -149,8 +156,8 @@ test(
               slides: [
                 {
                   title: "Evidence overview",
-                  content: "Finding [[cite:S1]].",
-                  notes: "Speaker evidence [[cite:S1]].",
+                  content: `Finding [[cite:${body.evidence[0].id}]].`,
+                  notes: `Speaker evidence [[cite:${body.evidence[0].id}]].`,
                   layout: "title",
                 },
                 {
@@ -394,6 +401,9 @@ test(
         "Recovered title after an outage",
       );
       // Presentation mode creates a deck without invoking paper generation or images by default.
+      // A leading Scholar metadata record must keep its S1 number without
+      // contaminating the automatically selected, abstract-bearing S2 evidence.
+      metadataFirst = true;
       await act(async () => root.unmount());
       root = createRoot(document.getElementById("root"));
       await act(async () =>
@@ -419,6 +429,23 @@ test(
       assert.ok(
         presentationCalls.some((c) => c.body?.task === "workflow-slides"),
       );
+      const slidesRequest = presentationCalls.find(
+        (c) => c.body?.task === "workflow-slides",
+      ).body;
+      assert.deepEqual(
+        slidesRequest.evidence.map((source) => source.id),
+        ["S2"],
+      );
+      assert.match(
+        slidesRequest.prompt,
+        /Allowed source identifiers for this request: S2\./,
+      );
+      assert.match(slidesRequest.prompt, /\[\[cite:S2\]\]/);
+      assert.ok(!slidesRequest.prompt.includes("[[cite:S1]]"));
+      assert.match(
+        document.querySelector(".rf-slide-preview").textContent,
+        /Finding/,
+      );
       assert.ok(
         !presentationCalls.some((c) => c.body?.task === "workflow-paper"),
       );
@@ -433,6 +460,22 @@ test(
         () => !document.querySelector(".rf-progress"),
         "presentation saved",
       );
+      const sparsePresentation = [...records.values()].find(
+        (record) => record.workflow.topic === "Animal rehabilitation",
+      ).workflow;
+      assert.deepEqual(
+        sparsePresentation.sources
+          .filter((source) => source.selected)
+          .map((source) => source.evidenceId),
+        ["S2"],
+      );
+      assert.equal(sparsePresentation.sources[0].abstract, "");
+      assert.match(
+        sparsePresentation.sources[0].searchSnippet,
+        /Scholar search description/,
+      );
+      assert.match(sparsePresentation.slides[0].content, /\[\[cite:S2\]\]/);
+      metadataFirst = false;
       await click(button("New"));
       await fill(
         document.getElementById("rf-topic"),

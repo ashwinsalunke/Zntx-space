@@ -14,6 +14,9 @@ import {
   prepareEvidence,
   evidenceFor,
   markdownNodes,
+  citationIds,
+  paperPrompt,
+  slidesPrompt,
 } from "../src/research-workflow.js";
 
 const sources = () =>
@@ -99,6 +102,82 @@ test("automatic selection includes accessible full texts without changing stable
   assert.equal(selected.filter((s) => s.selected).length, 8);
   assert.equal(selected.filter((s) => s.selected && s.pmcid).length, 2);
   assert.equal(selected[10].evidenceId, "S11");
+});
+
+test("generation prompts use the exact sparse evidence IDs without inventing a first source", () => {
+  const records = normalizeSources(
+    Array.from({ length: 7 }, (_, index) => ({
+      title: `Source ${index + 1}`,
+      ...(index === 0
+        ? { snippet: "A Scholar search description, not a study abstract." }
+        : { abstract: "A supplied study abstract." }),
+    })),
+  ).map((source) => ({
+    ...source,
+    selected: ["S2", "S7"].includes(source.evidenceId),
+  }));
+  const state = newWorkflow({ topic: "Research evidence", sources: records });
+  assert.deepEqual(
+    evidenceFor(records).map((source) => source.id),
+    ["S2", "S7"],
+  );
+  assert.equal(records[0].abstract, "");
+  assert.equal(records[0].coverage, "metadata");
+  for (const prompt of [paperPrompt(state), slidesPrompt(state)]) {
+    assert.match(
+      prompt,
+      /Allowed source identifiers for this request: S2, S7\./,
+    );
+    assert.deepEqual(citationIds(prompt), ["S2"]);
+    assert.ok(!prompt.includes("[[cite:S1]]"));
+    const example = JSON.parse(
+      prompt.match(/Return only JSON (\{.+?\})\./s)[1],
+    );
+    assert.ok(example.sections || example.slides);
+    assert.ok(
+      citationIds(JSON.stringify(example)).every((id) =>
+        ["S2", "S7"].includes(id),
+      ),
+    );
+  }
+  assert.deepEqual(
+    records.map((source) => source.evidenceId),
+    ["S1", "S2", "S3", "S4", "S5", "S6", "S7"],
+  );
+});
+
+test("slide context omits entire paragraphs containing deselected or unsent source citations", () => {
+  const records = normalizeSources(
+    Array.from({ length: 14 }, (_, index) => ({
+      title: `Study ${index + 1}`,
+      abstract: "A supplied study abstract.",
+    })),
+  ).map((source) => ({ ...source, selected: source.evidenceId !== "S1" }));
+  const state = newWorkflow({
+    sources: records,
+    document: paperDocument([
+      {
+        heading: "Current draft",
+        content:
+          "Current evidence [[cite:S2]].\n\nDeselected evidence must disappear [[cite:S1]].\n\nA mixed paragraph must disappear [[cite:S2]] and [[cite:S1]].\n\nAn unsent source must disappear [[cite:S14]].\n\nA single-bracket stale citation must disappear [cite:S1].\n\nAnother supported finding [[cite:S7]].",
+      },
+    ]),
+  });
+  const prompt = slidesPrompt(state);
+  assert.equal(evidenceFor(records).length, 12);
+  assert.match(prompt, /Current evidence \[\[cite:S2\]\]/);
+  assert.match(prompt, /Another supported finding \[\[cite:S7\]\]/);
+  assert.ok(!prompt.includes("must disappear"));
+  assert.deepEqual(citationIds(prompt), ["S2", "S7"]);
+  assert.ok(!paperPrompt(state).includes('"id":"S14"'));
+});
+
+test("generation prompt examples contain no citation placeholders without supplied evidence", () => {
+  const state = newWorkflow();
+  for (const prompt of [paperPrompt(state), slidesPrompt(state)]) {
+    assert.match(prompt, /No source identifiers are available/);
+    assert.deepEqual(citationIds(prompt), []);
+  }
 });
 
 test("planning does not masquerade as evidence and keeps the chosen template structure", () => {

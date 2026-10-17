@@ -34,33 +34,105 @@ const input = {
 
 test("workflow AI requests use structured output, require evidence, and reject malformed generated artifacts", async (t) => {
   let captured;
-  const service = await serve(t, { env: googleEnv, fetchImpl: async (_url, options) => {
-    captured = JSON.parse(options.body);
-    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"query":"cardiovascular research","title":"Evidence review","note":"Planning only."}' }] }, finishReason: "STOP" }] }), { status: 200 });
-  } });
-  const result = await service.post({ task: "workflow-plan", prompt: "Plan a literature search", evidence: [] });
+  const service = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async (_url, options) => {
+      captured = JSON.parse(options.body);
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: '{"query":"cardiovascular research","title":"Evidence review","note":"Planning only."}',
+                  },
+                ],
+              },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    },
+  });
+  const result = await service.post({
+    task: "workflow-plan",
+    prompt: "Plan a literature search",
+    evidence: [],
+  });
   assert.equal(result.status, 200);
   assert.equal(captured.generationConfig.responseMimeType, "application/json");
-  assert.deepEqual(captured.generationConfig.responseJsonSchema.required, ["query", "title", "note"]);
-  assert.equal(JSON.parse((await result.json()).text).query, "cardiovascular research");
-  assert.equal((await service.post({ task: "workflow-paper", prompt: "Draft", evidence: [] })).status, 400);
-  const bad = await serve(t, { env, fetchImpl: async () => completion('{"title":"Incomplete"}') });
+  assert.deepEqual(captured.generationConfig.responseJsonSchema.required, [
+    "query",
+    "title",
+    "note",
+  ]);
+  assert.equal(
+    JSON.parse((await result.json()).text).query,
+    "cardiovascular research",
+  );
+  assert.equal(
+    (
+      await service.post({
+        task: "workflow-paper",
+        prompt: "Draft",
+        evidence: [],
+      })
+    ).status,
+    400,
+  );
+  const bad = await serve(t, {
+    env,
+    fetchImpl: async () => completion('{"title":"Incomplete"}'),
+  });
   const rejected = await bad.post({ ...input, task: "workflow-paper" });
-  assert.equal(rejected.status, 502); assert.equal((await rejected.json()).code, "INVALID_AI_OUTPUT");
+  assert.equal(rejected.status, 502);
+  assert.equal((await rejected.json()).code, "INVALID_AI_OUTPUT");
 });
 
 test("disconnecting a generation aborts upstream work and releases its concurrency slot", async (t) => {
   let started, upstreamAborted;
-  const waiting = new Promise((resolve) => { started = resolve; });
-  const stopped = new Promise((resolve) => { upstreamAborted = resolve; });
+  const waiting = new Promise((resolve) => {
+    started = resolve;
+  });
+  const stopped = new Promise((resolve) => {
+    upstreamAborted = resolve;
+  });
   let calls = 0;
-  const service = await serve(t, { env, maxConcurrent: 1, fetchImpl: async (_url, options) => {
-    if (++calls > 1) return completion("Evidence [[cite:10.1234/study]].");
-    started(); return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => { upstreamAborted(); reject(options.signal.reason); }, { once: true }));
-  } });
+  const service = await serve(t, {
+    env,
+    maxConcurrent: 1,
+    fetchImpl: async (_url, options) => {
+      if (++calls > 1) return completion("Evidence [[cite:10.1234/study]].");
+      started();
+      return new Promise((_resolve, reject) =>
+        options.signal.addEventListener(
+          "abort",
+          () => {
+            upstreamAborted();
+            reject(options.signal.reason);
+          },
+          { once: true },
+        ),
+      );
+    },
+  });
   const controller = new AbortController();
-  const request = fetch((await service.get()).url.replace(/\/status$/, "/generate"), { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
-  await waiting; controller.abort(); await assert.rejects(request, /abort/i); await stopped;
+  const request = fetch(
+    (await service.get()).url.replace(/\/status$/, "/generate"),
+    {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  await waiting;
+  controller.abort();
+  await assert.rejects(request, /abort/i);
+  await stopped;
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal((await service.post()).status, 200);
 });
@@ -626,8 +698,8 @@ test("fallback remains bounded and is never activated by primary auth, quota, or
     { statuses: [429], count: 1, status: 429, code: "AI_PROVIDER_ERROR" },
     { statuses: [503, 403], count: 2, status: 502, code: "AI_PROVIDER_ERROR" },
     {
-      statuses: [200],
-      count: 1,
+      statuses: [200, 200],
+      count: 2,
       status: 502,
       code: "UNVERIFIED_AI_CITATION",
       invalidCitation: true,
@@ -839,34 +911,294 @@ test("concurrency bound rejects extra requests and releases capacity after compl
   assert.equal((await pending).status, 200);
 });
 
-
 test("citation whitespace and explicit groups normalize only when every identifier was supplied", async (t) => {
-  let output = "Reported association [[cite: source-1, source-2 ]] and limitation [[cite:source-1]].";
-  const api = await serve(t, { env: googleEnv, fetchImpl: async () => nativeCompletion(output) });
-  const request = { ...input, evidence: [
-    { ...evidence[0], id: "source-1" }, { ...evidence[0], id: "source-2", title: "A second supplied source" },
-  ] };
+  let output =
+    "Reported association [[cite: source-1, source-2 ]] and limitation [[cite:source-1]].";
+  const api = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async () => nativeCompletion(output),
+  });
+  const request = {
+    ...input,
+    evidence: [
+      { ...evidence[0], id: "source-1" },
+      { ...evidence[0], id: "source-2", title: "A second supplied source" },
+    ],
+  };
   let response = await api.post(request);
   let body = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(body.text, "Reported association [[cite:source-1]] [[cite:source-2]] and limitation [[cite:source-1]].");
-  assert.deepEqual(body.citations.map((c) => c.id), ["source-1", "source-2"]);
+  assert.equal(
+    body.text,
+    "Reported association [[cite:source-1]] [[cite:source-2]] and limitation [[cite:source-1]].",
+  );
+  assert.deepEqual(
+    body.citations.map((c) => c.id),
+    ["source-1", "source-2"],
+  );
   output = "Mixed group [[cite: source-1, invented-source ]].";
-  response = await api.post(request); body = await response.json();
+  response = await api.post(request);
+  body = await response.json();
   assert.equal(response.status, 502);
   assert.equal(body.code, "UNVERIFIED_AI_CITATION");
   output = "A finding [cite: 1, 2 ].";
-  response = await api.post({ ...request, evidence: request.evidence.map((source, index) => ({ ...source, id: String(index + 1) })) });
+  response = await api.post({
+    ...request,
+    evidence: request.evidence.map((source, index) => ({
+      ...source,
+      id: String(index + 1),
+    })),
+  });
   body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.text, "A finding [[cite:1]] [[cite:2]].");
-  assert.deepEqual(body.citations.map((source) => source.id), ["1", "2"]);
+  assert.deepEqual(
+    body.citations.map((source) => source.id),
+    ["1", "2"],
+  );
 });
 
-
 test("single-bracket citation markers cannot hide an unknown source", async (t) => {
-  const api = await serve(t, { env: googleEnv, fetchImpl: async () => nativeCompletion("Claim [[cite:10.1234/study]] but another [cite:invented].") });
+  const api = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async () =>
+      nativeCompletion(
+        "Claim [[cite:10.1234/study]] but another [cite:invented].",
+      ),
+  });
   const response = await api.post();
   assert.equal(response.status, 502);
   assert.equal((await response.json()).code, "UNVERIFIED_AI_CITATION");
+});
+
+test("Scholar-style numeric citations regenerate once with identical evidence rather than relabelling the answer", async (t) => {
+  const calls = [];
+  const records = [
+    {
+      ...evidence[0],
+      id: "1",
+      abstract:
+        "Search result snippet, not a full article or abstract: a trial record.",
+    },
+    {
+      ...evidence[0],
+      id: "2",
+      title: "A second source",
+      abstract:
+        "Search result snippet, not a full article or abstract: a review record.",
+    },
+  ];
+  const service = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options, body: JSON.parse(options.body) });
+      return nativeCompletion(
+        calls.length === 1
+          ? "Discard this unsupported claim [[cite:S1]]."
+          : "These search descriptions identify a trial [[cite:1]] and a review [[cite:2]]. Their snippets do not establish study findings.",
+      );
+    },
+  });
+  const response = await service.post({ ...input, evidence: records });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].options.signal, calls[1].options.signal);
+  const firstInput = JSON.parse(calls[0].body.contents[0].parts[0].text);
+  const nextInput = JSON.parse(calls[1].body.contents[0].parts[0].text);
+  assert.deepEqual(firstInput.evidence, records);
+  assert.deepEqual(nextInput, firstInput);
+  assert.match(
+    calls[0].body.systemInstruction.parts[0].text,
+    /\[\[cite:1\]\], \[\[cite:2\]\]/,
+  );
+  assert.match(
+    calls[1].body.systemInstruction.parts[0].text,
+    /previous attempt failed citation validation/,
+  );
+  assert.match(
+    calls[1].body.systemInstruction.parts[0].text,
+    /do not merely swap an invalid citation/,
+  );
+  assert.ok(
+    !JSON.stringify(calls[1].body).includes("Discard this unsupported claim"),
+  );
+  assert.ok(!body.text.includes("Discard this unsupported claim"));
+  assert.deepEqual(
+    body.citations.map((s) => s.id),
+    ["1", "2"],
+  );
+  assert.ok(body.warnings.some((w) => w.includes("regenerated")));
+});
+
+test("structured slide regeneration retains sparse IDs and the required output schema", async (t) => {
+  const calls = [];
+  const slides = (id) =>
+    JSON.stringify({
+      slides: [
+        {
+          title: "Findings",
+          content: `Finding [[cite:${id}]].`,
+          notes: "Available evidence only.",
+          layout: "title",
+        },
+        {
+          title: "Limits",
+          content: "Uncertainty [[cite:S7]].",
+          notes: "Review the source.",
+          layout: "content",
+        },
+      ],
+    });
+  const records = [
+    { ...evidence[0], id: "S2" },
+    { ...evidence[0], id: "S7", title: "Second study" },
+  ];
+  const service = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      return nativeCompletion(slides(calls.length === 1 ? "S1" : "S2"));
+    },
+  });
+  const response = await service.post({
+    task: "workflow-slides",
+    prompt: "Create two evidence slides",
+    evidence: records,
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0].generationConfig, calls[1].generationConfig);
+  assert.deepEqual(
+    body.citations.map((s) => s.id),
+    ["S2", "S7"],
+  );
+  assert.match(JSON.parse(body.text).slides[0].content, /\[\[cite:S2\]\]/);
+});
+
+test("citation recovery stays within the shared three-call capacity budget and never guesses unknown IDs", async (t) => {
+  for (const statuses of [
+    [503, 200, 200],
+    [503, 503, 200],
+  ]) {
+    const calls = [];
+    const service = await serve(t, {
+      env: googleFallbackEnv,
+      retryDelayMs: 0,
+      fetchImpl: async (url, options) => {
+        calls.push({ url, signal: options.signal });
+        assert.ok(calls.length <= 3, "Generation exceeded its call budget");
+        const status = statuses[calls.length - 1];
+        if (status !== 200) return new Response("Busy", { status });
+        return nativeCompletion(
+          statuses[1] === 200 && calls.length === 3
+            ? "Supplied evidence [[cite:10.1234/study]]."
+            : "Unknown evidence [[cite:invented]].",
+        );
+      },
+    });
+    const response = await service.post();
+    const body = await response.json();
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every((c) => c.signal === calls[0].signal));
+    assert.equal(response.status, statuses[1] === 200 ? 200 : 502);
+    if (!response.ok) assert.equal(body.code, "UNVERIFIED_AI_CITATION");
+  }
+  let calls = 0;
+  const service = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async () => {
+      calls++;
+      return nativeCompletion("Unknown [[cite:S1]].");
+    },
+  });
+  const response = await service.post({
+    ...input,
+    evidence: [{ ...evidence[0], id: "1" }],
+  });
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).code, "UNVERIFIED_AI_CITATION");
+  assert.equal(
+    calls,
+    2,
+    "An invalid regeneration must not trigger another attempt",
+  );
+});
+
+test("semicolon citation groups require every explicit ID; aliases and ranges stay invalid", async (t) => {
+  let output = "Finding [[cite:1; 2]].",
+    calls = 0;
+  const service = await serve(t, {
+    env: googleEnv,
+    fetchImpl: async () => {
+      calls++;
+      return nativeCompletion(output);
+    },
+  });
+  const records = [
+    { ...evidence[0], id: "1" },
+    { ...evidence[0], id: "2", title: "Second source" },
+  ];
+  const response = await service.post({ ...input, evidence: records });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).text, "Finding [[cite:1]] [[cite:2]].");
+  assert.equal(calls, 1);
+  for (const marker of ["1; invented", "S1", "1-2"]) {
+    output = `Finding [[cite:${marker}]].`;
+    assert.equal(
+      (await service.post({ ...input, evidence: records })).status,
+      502,
+    );
+  }
+});
+
+test("citation correction times out under the original signal and releases its concurrency slot", async (t) => {
+  let calls = 0,
+    correctionStarted,
+    upstreamAborted = false;
+  const started = new Promise((resolve) => {
+    correctionStarted = resolve;
+  });
+  const signals = [];
+  const service = await serve(t, {
+    env: googleEnv,
+    maxConcurrent: 1,
+    timeoutMs: 150,
+    fetchImpl: async (_url, options) => {
+      calls++;
+      signals.push(options.signal);
+      if (calls === 1)
+        return nativeCompletion("Wrong source [[cite:invented]].");
+      if (calls > 2)
+        return nativeCompletion("Reported uncertainty [[cite:10.1234/study]].");
+      correctionStarted();
+      return new Promise((_resolve, reject) => {
+        const abort = () => {
+          upstreamAborted = true;
+          reject(options.signal.reason);
+        };
+        if (options.signal.aborted) abort();
+        else options.signal.addEventListener("abort", abort, { once: true });
+      });
+    },
+  });
+  const pending = service.post();
+  await started;
+  assert.equal(
+    (await service.post()).status,
+    429,
+    "A correction keeps its original concurrency slot",
+  );
+  const response = await pending;
+  assert.equal(response.status, 504);
+  assert.equal((await response.json()).code, "AI_TIMEOUT");
+  assert.equal(signals[0], signals[1]);
+  assert.equal(upstreamAborted, true);
+  assert.equal(
+    (await service.post()).status,
+    200,
+    "A timed out correction releases capacity",
+  );
+  assert.equal(calls, 3);
 });
