@@ -142,3 +142,5 @@
 .lw-import-progress p { color:#787878; margin:0; font-size:13px; }
 
 @media (max-width:600px) { .lw-content-heading { flex-wrap:wrap; } .lw-toolbar-actions { max-width:none; justify-content:flex-start; } .lw-organize-button { width:36px; height:36px; right:-4px; } .lw-item-meta { padding-right:22px; } .lw-collection, .lw-add-collection { min-height:44px; } }
+
+.lw-heading h1,.lw-content-heading h2{font-weight:750}.lw-heading>.lw-toolbar-actions{flex-wrap:wrap;justify-content:flex-end}

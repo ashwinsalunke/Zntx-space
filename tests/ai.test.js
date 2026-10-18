@@ -1238,3 +1238,13 @@ test('guide ensures docking navigation for an explicit docking task when the mod
   const result = JSON.parse((await response.json()).text);
   assert.deepEqual(result.actions, ['docking', 'papers', 'compare']);
 });
+
+test('topic discovery uses structured generation with abstracts and rejects unknown topic citations', async t=>{
+  const topic=id=>({title:'Direction '+id,question:'Which outcomes should this review compare?',whyNow:'Source-supported motivation [[cite:S1]].',approach:'Compare study definitions.',firstStep:'Create a table of the reported study methods.',limitation:'Read full articles before drawing conclusions.',method:'review',difficulty:'introductory'});
+  let response={summary:'Possible directions [[cite:S1]].',topics:[topic(1),topic(2),topic(3)]},captured;
+  const service=await serve(t,{env:googleEnv,fetchImpl:async(_url,options)=>{captured=JSON.parse(options.body);return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(response)}]},finishReason:'STOP'}]}));}});
+  const request={task:'topic-scan',prompt:'Find research topics in antibiotic resistance',evidence:[{...evidence[0],id:'S1'}]};
+  const result=await service.post(request);assert.equal(result.status,200);assert.equal(JSON.parse((await result.json()).text).topics.length,3);assert.ok(captured.generationConfig.responseJsonSchema.properties.topics);assert.equal(captured.generationConfig.responseMimeType,'application/json');
+  assert.equal((await service.post({...request,evidence:[]})).status,400);
+  response.topics[0].whyNow='Unavailable [[cite:S99]].';const rejected=await service.post(request);assert.equal(rejected.status,502);assert.equal((await rejected.json()).code,'UNVERIFIED_AI_CITATION');
+});

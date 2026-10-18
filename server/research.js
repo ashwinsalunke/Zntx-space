@@ -4,6 +4,7 @@ export const stripTags = (s = "") =>
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 export function crossrefRequest(query, allTypes = false) {

@@ -107,6 +107,8 @@ const HomeWorkspace = lazy(() => import("./HomeWorkspace.jsx"));
 const LibraryWorkspace = lazy(() => import("./LibraryWorkspace.jsx"));
 const SourceWorkspace = lazy(() => import("./SourceWorkspace.jsx"));
 const TemplateWritingWorkspace = lazy(() => import("./TemplateWritingWorkspace.jsx"));
+const TopicsWorkspace = lazy(() => import("./TopicsWorkspace.jsx"));
+const NotebookWorkspace = lazy(() => import("./NotebookWorkspace.jsx"));
 const TemplatesWorkspace = lazy(() => import("./TemplatesWorkspace.jsx"));
 const AgentGallery = lazy(() => import("./AgentGallery.jsx"));
 const AutomationWorkspace = lazy(() => import("./AutomationWorkspace.jsx"));
@@ -262,7 +264,7 @@ export default function App() {
     setMobile(false);
     document.querySelector("main")?.scrollTo(0, 0);
     window.scrollTo(0, 0);
-    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation", "/read-pdf": "PDF Reader", "/template-writing": "Template manuscript" }[location.pathname] || "Research workspace"} · scrapeTx`;
+    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/notebooks": "Notebooks", "/presentation": "Presentation", "/read-pdf": "PDF Reader", "/template-writing": "Template manuscript" }[location.pathname] || (location.pathname.startsWith("/notebooks") ? "Notebooks" : "Research workspace")} · scrapeTx`;
   }, [location.pathname]);
   const savePaper = async (p) => {
     if (pendingLibrary.current.has(p.id)) return;
@@ -316,9 +318,9 @@ export default function App() {
     {
       "/library": "My Library",
       "/diagrams": "Diagrams",
-      "/presentation": "Presentation", "/read-pdf": "PDF Reader", "/template-writing": "Template manuscript",
+      "/notebooks": "Notebooks", "/presentation": "Presentation", "/read-pdf": "PDF Reader", "/template-writing": "Template manuscript",
     }[location.pathname] ||
-    "Research workspace";
+    (location.pathname.startsWith("/notebooks/") ? "Notebook" : "Research workspace");
   return (
     <Ctx.Provider
       value={{ library, savePaper, refreshLibrary, saveNote, history, refreshHistory, deleteHistory, notify, navigate }}
@@ -351,7 +353,7 @@ export default function App() {
             </button>
           </div>
           <div className="sidebar-scroll"><nav aria-label="Research tools">
-            {navigation.filter(([path]) => ["/", "/research-workflow", "/library", "/search", "/chat", "/projects", "/pharma", "/docking"].includes(path)).map(([path, Icon, label]) => (
+            {navigation.filter(([path]) => ["/", "/research-workflow", "/library", "/search", "/chat", "/projects", "/pharma", "/docking", "/concepts"].includes(path)).map(([path, Icon, label]) => (
               <NavLink end={path === "/"} key={path} to={path} title={label} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
                 <Icon size={17} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span>
               </NavLink>
@@ -359,7 +361,7 @@ export default function App() {
           </nav>
           {[
             ["Write & present", ["/templates", "/ai-writer", "/diagrams", "/presentation", "/citation-generator", "/paraphraser", "/ai-humanizer"]],
-            ["Research tools", ["/agents", "/automations", "/chat-pdf", "/verification", "/concepts", "/extract-data", "/ai-detector"]],
+            ["Research tools", ["/agents", "/automations", "/chat-pdf", "/verification", "/extract-data", "/ai-detector"]],
           ].map(([label, paths]) => <details key={label} className="sidebar-utilities" open={paths.includes(location.pathname) || collapsed || undefined}>
             <summary><MoreHorizontal size={18} aria-hidden="true"/><span>{label}</span><ChevronDown size={14} aria-hidden="true"/></summary>
             {navigation.filter(([path]) => paths.includes(path)).map(([path, Icon, name]) => <NavLink key={path} to={path} title={name} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.8} aria-hidden="true"/><span>{name}</span></NavLink>)}
@@ -452,7 +454,9 @@ export default function App() {
               <Route path="/chat-pdf" element={<PdfWorkspace />} />
               <Route path="/extract-data" element={<PdfWorkspace extract />} />
               <Route path="/ai-writer" element={<Writer />} />
-              <Route path="/concepts" element={<Topics />} />
+              <Route path="/concepts" element={<TopicsWorkspace />} />
+              <Route path="/notebooks" element={<NotebookWorkspace />} />
+              <Route path="/notebooks/:id" element={<NotebookWorkspace />} />
               <Route path="/citation-generator" element={<Citations />} />
               <Route
                 path="/paraphraser"
@@ -1660,102 +1664,6 @@ function Writer() {
         </div>
       </section>
     </div>
-  );
-}
-function Topics() {
-  const [params] = useSearchParams();
-  const [topic, setTopic] = useState(params.get("topic") || "");
-  const [done, setDone] = useState("");
-  const { navigate } = useApp();
-  const topics = done
-    ? [
-        `Recent advances in ${done}`,
-        `Challenges and limitations of ${done}`,
-        `${done} in real-world applications`,
-        `Ethical implications of ${done}`,
-        `Comparative studies of ${done}`,
-        `Future directions for ${done}`,
-      ]
-    : [];
-  return (
-    <section className="page tool-page">
-      <div className="center-heading">
-        <span className="soft-icon">
-          <Shapes size={24} />
-        </span>
-        <h1>Find your next research question.</h1>
-        <p>Start with an idea. Explore where it could take you.</p>
-      </div>
-      <PromptSuggestions examples={toolExamples.topics} value={topic} onChoose={setTopic} />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setDone(topic);
-        }}
-        className="search-form"
-      >
-        <Search size={18} />
-        <input
-          aria-label="Research area"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder="Enter a topic or research area…"
-        />
-        <Button primary disabled={!topic.trim()}>
-          Explore topics <ArrowRight size={15} />
-        </Button>
-      </form>
-      {done ? (
-        <>
-          <div className="section-heading">
-            <h2>Directions to explore</h2>
-            <span className="tag">Question prompts</span>
-          </div>
-          <p className="muted small">
-            These prompts broaden your starting point. Search the literature to
-            check what has already been studied.
-          </p>
-          <div className="topic-grid">
-            {topics.map((t, i) => (
-              <button
-                key={t}
-                onClick={() => navigate("/search?q=" + encodeURIComponent(t))}
-              >
-                <span>0{i + 1}</span>
-                <h3>{t}</h3>
-                <p>
-                  Explore published research <ArrowRight size={14} />
-                </p>
-              </button>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="topic-starters">
-          <span className="section-label">A few places to begin</span>
-          {[
-            "Artificial intelligence",
-            "Climate change",
-            "Mental health",
-            "Renewable energy",
-            "Quantum computing",
-            "Higher education",
-          ].map((t) => (
-            <button
-              key={t}
-              className="btn"
-              onClick={() => {
-                setTopic(t);
-                setDone(t);
-              }}
-            >
-              {t}
-              <ArrowUp size={13} />
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 function BibliographySourceLink({ record }) {

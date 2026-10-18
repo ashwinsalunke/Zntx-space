@@ -451,7 +451,9 @@ export function createDiscoveryRouter({
       }
     }
   }
-  async function search(query) {
+  async function search(query, recent = false) {
+    const today = new Date().toISOString().slice(0,10);
+    const since = `${new Date().getUTCFullYear()-3}-01-01`;
     const providers = [
       {
         id: "crossref",
@@ -459,7 +461,7 @@ export function createDiscoveryRouter({
         url: "https://www.crossref.org/",
         endpoint: makeUrl("https://api.crossref.org/works", {
           query,
-          filter: "type:journal-article",
+          filter: "type:journal-article" + (recent ? `,from-pub-date:${since},until-pub-date:${today}` : ""),
           rows: 40,
           sort: "relevance",
         }),
@@ -481,7 +483,7 @@ export function createDiscoveryRouter({
         url: "https://europepmc.org/",
         endpoint: makeUrl(
           "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
-          { query, format: "json", resultType: "core", pageSize: 40 },
+          { query: recent ? `(${query}) AND FIRST_PDATE:[${since} TO ${today}]` : query, format: "json", resultType: "core", pageSize: 40 },
         ),
         normalize(data) {
           if (!Array.isArray(data.resultList?.result))
@@ -531,6 +533,7 @@ export function createDiscoveryRouter({
       papers,
       total: papers.length,
       query,
+      searchWindow: recent ? {from:since,to:today} : null,
       source: "Deep search · Crossref + Europe PMC",
       retrievedAt: new Date().toISOString(),
       sources,
@@ -603,7 +606,8 @@ export function createDiscoveryRouter({
         code: "INVALID_QUERY",
       });
     try {
-      res.json(await cached(`search:${q}`, () => search(q)));
+      const recent = req.query.sort === "recent";
+      res.json(await cached(`search:${JSON.stringify([q,recent])}`, () => search(q,recent)));
     } catch (error) {
       fail(res, error);
     }

@@ -19,6 +19,7 @@ export const AI_TASKS = Object.freeze([
   "paraphrase",
   "explain",
   "topics",
+  "topic-scan",
   "diagram",
   "workflow-plan",
   "workflow-paper",
@@ -230,7 +231,7 @@ export function validateAiRequest(body) {
       `Prompt and evidence together must be at most ${LIMITS.total} characters.`,
     );
   if (
-    ["workflow-paper", "workflow-slides"].includes(task) &&
+    ["workflow-paper", "workflow-slides", "topic-scan"].includes(task) &&
     !evidence.some((source) => source.abstract.trim())
   )
     throw new AiError(
@@ -243,6 +244,7 @@ export function validateAiRequest(body) {
 
 const TASK_INSTRUCTIONS = {
   guide: GUIDE_INSTRUCTIONS,
+  "topic-scan": "Return only JSON matching the supplied topic-scan schema: summary and 3 to 6 distinct topics, each with title, question, whyNow, approach, firstStep, limitation, method and difficulty. Every topic must cite at least one supplied source in whyNow using exact evidence markers. Derive directions from the supplied abstracts; describe untested gaps as questions, never confirmed novelty or guaranteed outcomes. Explain what existing studies report and what remains uncertain. No numeric scores: the app computes transparent planning scores. Method is review, secondary, or experiment. Difficulty is introductory, intermediate, or advanced. Match the user's resources and timeframe. Keep topics understandable and specific. Never invent feasibility evidence, datasets, citations or source links.",
   "workflow-plan":
     "Return only JSON with query (a concise scholarly search query), title (a working research title), and note (state that this is planning, not source-verified findings). Do not answer the question or claim findings. No Markdown wrapper or introductory prose.",
   "workflow-paper":

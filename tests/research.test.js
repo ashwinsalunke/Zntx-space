@@ -96,3 +96,8 @@ test("search result exports keep snippets separate from abstracts and retain ori
   assert.ok(output.includes('"\'  =Untrusted title"'));
   assert.ok(output.includes('"A search preview","https://example.org/original","Google Search via SerpAPI"'));
 });
+
+test("encoded publisher title markup is rendered as plain text",()=>{
+ const p=crossrefPaper({title:['Resistance of &lt;i&gt;Staphylococcus aureus&lt;/i&gt; strains'],DOI:'10.1234/example'});
+ assert.equal(p.title,'Resistance of Staphylococcus aureus strains');
+});

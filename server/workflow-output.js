@@ -1,7 +1,9 @@
 import { GUIDE_SCHEMA, validateGuide } from "../shared/research-guide.js";
+import { TOPIC_SCAN_SCHEMA, validateTopicScan } from "../shared/topic-discovery.js";
 const string = { type: "string" };
 export const WORKFLOW_SCHEMAS = {
   guide: GUIDE_SCHEMA,
+  "topic-scan": TOPIC_SCAN_SCHEMA,
   "workflow-plan": {
     type: "object",
     properties: { query: string, title: string, note: string },
@@ -68,6 +70,7 @@ export function validateWorkflowOutput(task, text) {
     fail();
   }
   if (!data || typeof data !== "object" || Array.isArray(data)) fail();
+  if (task === "topic-scan") return JSON.stringify(validateTopicScan(data));
   if (task === "guide") return JSON.stringify(validateGuide(data));
   if (task === "workflow-plan") {
     if (!valid(data.query, 500) || !valid(data.title, 200)) fail();

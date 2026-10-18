@@ -7,6 +7,8 @@ import { TableKit } from "@tiptap/extension-table";
 import {
   Bold,
   Italic,
+  Underline,
+  Strikethrough,
   List,
   ListOrdered,
   Undo2,
@@ -131,7 +133,9 @@ export default function WorkflowEditor({
             italic: current.isActive("italic"),
             bullets: current.isActive("bulletList"),
             ordered: current.isActive("orderedList"),
-            heading: current.isActive("heading", { level: 2 }),
+            heading: current.isActive("heading") ? current.getAttributes("heading").level : 0,
+            underline: current.isActive("underline"),
+            strike: current.isActive("strike"),
             table: current.isActive("table"),
             undo: current.can().undo(),
             redo: current.can().redo(),
@@ -162,18 +166,22 @@ export default function WorkflowEditor({
         <select
           aria-label="Paragraph style"
           disabled={!editor || disabled}
-          value={state?.heading ? "heading" : "paragraph"}
+          value={state?.heading ? String(state.heading) : "paragraph"}
           onChange={(event) =>
-            event.target.value === "heading"
-              ? editor.chain().focus().toggleHeading({ level: 2 }).run()
+            event.target.value !== "paragraph"
+              ? editor.chain().focus().setHeading({ level: Number(event.target.value) }).run()
               : editor.chain().focus().setParagraph().run()
           }
         >
           <option value="paragraph">Normal text</option>
-          <option value="heading">Heading</option>
+          <option value="1">Heading 1</option>
+          <option value="2">Heading 2</option>
+          <option value="3">Heading 3</option>
         </select>
         {action("Bold", Bold, (c) => c.toggleBold(), state?.bold)}
         {action("Italic", Italic, (c) => c.toggleItalic(), state?.italic)}
+        {action("Underline", Underline, (c) => c.toggleUnderline(), state?.underline)}
+        {action("Strikethrough", Strikethrough, (c) => c.toggleStrike(), state?.strike)}
         <span className="rf-toolbar-divider" />
         {action(
           "Bullet list",

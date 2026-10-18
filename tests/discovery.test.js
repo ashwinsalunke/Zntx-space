@@ -296,3 +296,15 @@ test("identical searches are cached and cache eviction is bounded", async () => 
     { maxCacheEntries: 1 },
   );
 });
+
+test('recent topic discovery applies publication windows to both providers without contaminating relevance cache',async()=>{
+ const calls=[];
+ await withApi(async url=>{const u=new URL(url);calls.push(u);return u.hostname==='api.crossref.org'?crossref([]):europe([]);},async request=>{
+  const recent=await request('/search?q=antibiotics&sort=recent');assert.equal(recent.status,200);assert.match(recent.data.searchWindow.from,/^\d{4}-01-01$/);
+  const cr=calls.find(u=>u.hostname==='api.crossref.org'),ep=calls.find(u=>u.hostname!=='api.crossref.org');
+  assert.equal(cr.searchParams.get('sort'),'relevance');assert.match(cr.searchParams.get('filter'),/from-pub-date:/);assert.match(ep.searchParams.get('query'),/FIRST_PDATE:/);
+  await request('/search?q=antibiotics');assert.equal(calls.length,4);assert.equal(calls[2].searchParams.get('sort'),'relevance');
+  await request('/search?q=antibiotics&sort=recent');assert.equal(calls.length,4);
+  await request('/search?q=recent%3Aantibiotics');assert.equal(calls.length,6,'query text cannot collide with the recent-window cache key');
+ });
+});

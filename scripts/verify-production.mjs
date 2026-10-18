@@ -30,8 +30,10 @@ try {
     try { if ((await fetch(base + '/api/health')).ok) break; } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  const page = await fetch(base + '/research-workflow');
-  assert.equal(page.status, 200); assert.match(await page.text(), /<div id="root">/);
+  for (const route of ['/research-workflow','/concepts','/notebooks','/notebooks/example','/library?folder=example&tab=notebooks']) {
+    const page = await fetch(base + route);
+    assert.equal(page.status, 200); assert.match(await page.text(), /<div id="root">/);
+  }
   for (const method of ['GET','POST']) {
     const response = await fetch(base + '/api/not-a-route', { method });
     assert.equal(response.status, 404); assert.match(response.headers.get('content-type'), /application\/json/);
@@ -58,6 +60,13 @@ try {
   assert.equal((await call(owner,'GET','/api/library')).length,1);
   assert.equal((await fetch(base+'/api/history',{method:'DELETE'})).status,401);
   console.log('PASS: permanent history deletion, duplicate removal, workspace isolation and saved-source preservation.');
+  const notebook={id:'notebook-test',type:'research-notebook',title:'Production smoke notebook',document:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Saved research context'}]}]},sources:[{evidenceId:'S1',title:'Source',url:'https://example.com/source',abstract:'Source abstract'}]};
+  await call(owner,'PUT','/api/records/notes/notebook-test',notebook);
+  await call(owner,'PUT','/api/records/reviews/folder-test',{id:'folder-test',type:'library-collection',name:'Project folder',itemKeys:['note:notebook-test']});
+  assert.deepEqual((await call(owner,'GET','/api/records/notes/notebook-test')).document,notebook.document);
+  assert.deepEqual((await call(owner,'GET','/api/records/reviews/folder-test')).itemKeys,['note:notebook-test']);
+  assert.equal((await fetch(base+'/api/records/notes/notebook-test',{headers:{'X-Workspace-Token':other}})).status,404);
+  console.log('PASS: notebook documents, source metadata, folder membership, and workspace isolation.');
   const config = await (await fetch(base + '/api/config')).json();
   assert.equal(config.cloud, false, 'Production smoke must not use real cloud credentials');
   console.log('PASS: isolated production startup, deep links, provider assets, JSON API 404s, asset 404s, workspace-token and origin checks.');
