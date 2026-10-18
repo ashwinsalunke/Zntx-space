@@ -12,7 +12,7 @@ const guidedTemplates = new Set(["literature-review", "pharma-literature-review"
 const kindIcon = (kind) => kind === "Thesis & Dissertation" ? GraduationCap : kind === "Book Series" || kind === "Book Chapter" ? Library : BookOpen;
 const facets = [
   { key: "topic", label: "Topic", values: ["Medicine", "Biology", "Pharmacology", "Chemistry", "Engineering", "Social Sciences"] },
-  { key: "publisher", label: "Publisher", values: ["scrapeTx", "PLOS", "Frontiers", "BMJ"] },
+  { key: "publisher", label: "Publisher", values: ["scrapeTx", "PLOS", "Frontiers", "BMJ", "Atlantis Press"] },
   { key: "university", label: "University", values: ["University of Cambridge"] },
   { key: "access", label: "Access Type", values: ["Open Access", "Not specified"] },
 ];

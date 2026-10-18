@@ -26,7 +26,7 @@ For a built server, run `npm run build` and `npm start`, then open port 5180. Se
 
 ## Research tools
 
-The home search offers 13 source shortcuts in a horizontal rail, with Show all to expand it. The tool selector opens Deep Research, a systematic screening project, an evidence report, or biomedical search. Recently saved sources link back to their originals.
+The home search offers 13 source shortcuts in a horizontal rail, with Show all to expand it. The tool selector opens Deep Research, a systematic screening project, an evidence report, or biomedical search. Recently saved sources link back to their originals. Recent search queries can be permanently deleted individually (including duplicate history entries), or cleared together, without deleting saved sources.
 
 - **My Library:** collections for sources, notes, and saved research; searchable/filterable records; linked original sources; Zotero/Mendeley RIS imports with duplicate detection; HTML bibliography, BibTeX, Markdown, and JSON exports. Save passages from PDFs and generated research to the same library.
 - **Additional sources:** live arXiv preprints, Grants.gov opportunities, DataCite datasets, and exact Python package metadata from PyPI. Google Search, Scholar, and Patents retrieve source-linked results through your own SerpAPI connection; original-site links remain available.
@@ -39,7 +39,7 @@ The home search offers 13 source shortcuts in a horizontal rail, with Show all t
 - **Pharma Research:** PubChem compounds and structures, exact-identity ChEMBL mechanisms, registered ClinicalTrials.gov studies, openFDA label sections and separately labelled FAERS counts, and PubMed abstracts.
 - **Research Projects:** review questions and protocols, library paper selection, inclusion/exclusion decisions, evidence notes, autosave, and screening CSV export.
 - **PDF workspace:** browser-side selectable text extraction, page-linked excerpts, original PDF view, configurable AI explanations and evidence-field extraction, text/CSV exports. Supports up to 20 MB and 100 pages per PDF.
-- **Templates:** a searchable catalog of 20 original writing starters with kind, topic, publisher, university, and access filters; document previews, Markdown downloads, and template-specific editor content. Guidance-linked entries point to official publisher/university instructions; journal rankings are not fabricated.
+- **Templates:** a searchable catalog of writing starters and a user-supplied JEGH LaTeX template. Start writing attaches the file and prefills Home; the manuscript workspace checks required sections, asks for missing content, creates an editable source-based draft, saves in My Library and exports Word/LaTeX. JEGH exports retain the supplied page geometry and columns. See the [template workflow audit](docs/template-writing-audit.md).
 - **Writing:** editable source-based outlines and templates, optional AI drafts, cloud-saved documents, Markdown, DOCX, LaTeX, and HTML/print-PDF exports.
 - **Citations:** article/book/DOI lookup, clickable original-source links, APA/MLA/IEEE starting formats, BibTeX and RIS export, linked HTML bibliographies, and saved-library sources. Verify metadata and style details before submission.
 - **Diagrams and presentations:** editable research structures, optional AI concept maps, slide outlines, and real PowerPoint export.

@@ -1,0 +1,14 @@
+.recent-searches { min-width:0; margin:20px 0; }
+.recent-searches-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.recent-searches button { display:inline-flex; flex-shrink:0; align-items:center; justify-content:center; width:44px; min-height:44px; padding:0; color:var(--muted); border:0; border-radius:7px; background:transparent; cursor:pointer; transition:background-color 160ms ease,color 160ms ease; }
+.recent-searches button:hover { color:#a02a2a; background:#fbebeb; }
+.recent-search-row { display:flex; align-items:center; min-width:0; gap:3px; }
+.recent-search-row a { display:flex; align-items:center; gap:9px; flex:1; min-width:0; min-height:44px; padding:8px; border-radius:6px; color:var(--text); }
+.recent-search-row a:hover { background:var(--ivory,#f1f0ec); }
+.recent-search-row a svg { flex-shrink:0; }
+.recent-search-row a span { white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+.recent-searches.compact { margin:8px 0 0; font-size:12px; }
+.recent-searches.compact .section-label { letter-spacing:1px; }
+.recent-delete-dialog { padding:20px 24px 24px; line-height:1.7; }
+.recent-delete-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-top:22px; }
+@media(prefers-reduced-motion:reduce) { .recent-searches button { transition:none; } }

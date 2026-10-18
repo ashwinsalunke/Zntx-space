@@ -11,6 +11,7 @@ import {
   getRecord,
   putRecord,
   removeRecord,
+  removeSearchHistory,
 } from "./storage.js";
 import biomedicalRouter from "./biomedical.js";
 import aiRouter from "./ai.js";
@@ -247,6 +248,19 @@ app.get("/api/history", async (req, res, next) => {
   } catch (e) {
     next(e);
   }
+});
+app.delete("/api/history/:id", async (req, res, next) => {
+  try {
+    const token = workspaceToken(req);
+    const record = await getRecord(token, "searches", req.params.id);
+    if (record && typeof record.query === "string" && record.query) await removeSearchHistory(token, record.query);
+    else if (record) await removeRecord(token, "searches", record.id);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.delete("/api/history", async (req, res, next) => {
+  try { res.json(await removeSearchHistory(workspaceToken(req))); }
+  catch (e) { next(e); }
 });
 app.get("/api/drafts", async (req, res, next) => {
   try {

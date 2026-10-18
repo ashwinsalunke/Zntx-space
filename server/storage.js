@@ -178,3 +178,20 @@ export async function removeRecord(token, collection, id) {
       .run(hash(token), collection, id);
   return { ok: true };
 }
+
+// A recent-search row represents every occurrence of the same query, including
+// occurrences older than the history listing window. Never touch saved papers.
+export async function removeSearchHistory(token, query) {
+  if (query !== undefined && (typeof query !== "string" || !query.length || query.length > 500))
+    throw Object.assign(new Error("Invalid search query."), { status: 400 });
+  if (storageInfo.cloud) {
+    const filter = new URLSearchParams({ collection: "eq.searches" });
+    if (query !== undefined) filter.set("data->>query", `eq.${query}`);
+    await cloud(token, "DELETE", filter);
+  } else if (query === undefined) {
+    local().prepare("DELETE FROM workspace_records WHERE workspace_hash=? AND collection='searches'").run(hash(token));
+  } else {
+    local().prepare("DELETE FROM workspace_records WHERE workspace_hash=? AND collection='searches' AND json_extract(data,'$.query')=?").run(hash(token), query);
+  }
+  return { ok: true };
+}

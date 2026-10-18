@@ -11,11 +11,11 @@ test('template filters combine facets and search actual metadata, with OR choice
   assert.equal(filterTemplates().length, templates.length);
 });
 
-test('every writing starter loads its own sections through a stable editor URL and preserves source guidance', () => {
+test('every writing starter opens the home composer with a stable template identity and preserves source guidance', () => {
   assert.equal(new Set(templates.map(item=>item.id)).size, templates.length);
   for (const item of templates) {
     const target=new URL(templatePath(item),'https://zntx.example');
-    assert.equal(target.pathname, '/ai-writer');
+    assert.equal(target.pathname, '/');
     assert.equal(templateById(target.searchParams.get('template')), item);
     assert.equal(templateById(item.title),item);
     const content=templateContent(item);

@@ -10,7 +10,13 @@ import {
   TableRow,
   TextRun,
   WidthType,
+  SectionType,
+  Header,
+  PageNumber,
+  TabStopType,
+  BorderStyle,
 } from "docx";
+import { journalLayouts, journalPreamble } from "../shared/journal-layouts.js";
 import pptxgen from "pptxgenjs";
 import { imageSize } from "image-size";
 
@@ -211,7 +217,7 @@ function renderHtml(title, blocks) {
   return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${html(title)}</title><style>body{font:17px/1.75 Georgia,serif;color:#171717;background:#fff;max-width:800px;padding:48px 28px;margin:auto}h1,h2,h3,h4,h5,h6{font-family:Arial,sans-serif;line-height:1.3;color:#000}h1{font-size:30px}pre,code{font-family:monospace;white-space:pre-wrap;overflow-wrap:anywhere}blockquote{margin-left:0;padding-left:20px;border-left:3px solid #ddd}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left}p,li,td,th{overflow-wrap:anywhere}@media print{body{padding:0}}</style></head><body><h1>${html(title)}</h1>\n${body}\n</body></html>`;
 }
 
-function renderLatex(title, blocks) {
+function renderLatex(title, blocks, layout) {
   const inline = (text) =>
     inlineParts(text)
       .map(
@@ -227,7 +233,7 @@ function renderLatex(title, blocks) {
     "subparagraph",
     "subparagraph",
   ];
-  const body = blocks
+  const renderBlocks = (items) => items
     .map((block) => {
       if (block.type === "heading")
         return `\\${commands[block.level - 1]}*{${inline(block.text)}}`;
@@ -245,18 +251,26 @@ function renderLatex(title, blocks) {
       if (block.type === "table") {
         const columns = Array(block.rows[0].length)
           .fill(
-            `p{\\dimexpr\\textwidth/${block.rows[0].length}-2\\tabcolsep\\relax}`,
+            `p{\\dimexpr\\linewidth/${block.rows[0].length}-2\\tabcolsep\\relax}`,
           )
           .join("");
-        return `\\begin{longtable}{${columns}}\n${block.rows.map((row, index) => `${row.map((cell) => (index ? inline(cell) : `\\textbf{${inline(cell)}}`)).join(" & ")} \\\\${index ? "" : " \\hline"}`).join("\n")}\n\\end{longtable}`;
+        const env = layout ? "tabular" : "longtable";
+        return `\\begin{${env}}{${columns}}\n${block.rows.map((row, index) => `${row.map((cell) => (index ? inline(cell) : `\\textbf{${inline(cell)}}`)).join(" & ")} \\\\${index ? "" : " \\hline"}`).join("\n")}\n\\end{${env}}`;
       }
       return inline(block.text);
     })
     .join("\n\n");
+  const body = renderBlocks(blocks);
+  if (layout) {
+    const first = blocks.findIndex(b => b.type === "heading" && /^introduction$/i.test(b.text));
+    const front = first >= 0 ? renderBlocks(blocks.slice(0, first)) : "";
+    const main = first >= 0 ? renderBlocks(blocks.slice(first)) : body;
+    return `% Layout from the supplied JEGH template; check current author guidance.\n${journalPreamble(layout)}\n\\title{${latex(title)}}\n\\author{}\n\\date{}\n\\begin{document}\n\\twocolumn[\n\\maketitle\n\\begin{minipage}{\\textwidth}\n${front}\n\\end{minipage}\n\\bigskip]\n${main}\n\\end{document}\n`;
+  }
   return `% Compile with XeLaTeX or LuaLaTeX for Unicode research text.\n\\documentclass[12pt]{article}\n\\usepackage[margin=1in]{geometry}\n\\usepackage{fontspec}\n\\usepackage{longtable}\n\\setmainfont{TeX Gyre Termes}\n\\title{${latex(title)}}\n\\author{}\n\\date{}\n\\begin{document}\n\\maketitle\n${body}\n\\end{document}\n`;
 }
 
-async function renderDocx(title, blocks) {
+async function renderDocx(title, blocks, layout) {
   const runs = (text, extra = {}) =>
     inlineParts(text).flatMap((part) =>
       part.text.split("\n").flatMap((line, index) => {
@@ -316,7 +330,9 @@ async function renderDocx(title, blocks) {
   const children = [
     new Paragraph({ text: title, heading: HeadingLevel.TITLE }),
   ];
+  let bodyStart = 1;
   for (const block of blocks) {
+    if (block.type === "heading" && /^introduction$/i.test(block.text)) bodyStart = children.length;
     if (block.type === "table") {
       children.push(
         new Table({
@@ -387,10 +403,21 @@ async function renderDocx(title, blocks) {
           ...(block.type === "quote"
             ? { indent: { left: 480 }, style: "Quote" }
             : {}),
-          spacing: { after: 160, line: 300 },
+          spacing: { after: layout ? 80 : 160, line: layout ? 240 : 300 },
+          ...(layout && /^\[\d+\]\s/.test(block.text) ? { keepLines: true } : {}),
         }),
       );
   }
+  const mm = value => Math.round(value * 1440 / 25.4);
+  const manuscriptPage = layout && {
+    size: { width: mm(layout.widthMm), height: mm(layout.heightMm) },
+    margin: { top: mm(layout.topMm), bottom: mm(layout.bottomMm), left: mm(layout.leftMm), right: mm(layout.rightMm), header: 200 },
+  };
+  const manuscriptHeaders = () => ({ default: new Header({ children: [new Paragraph({
+    children: [new TextRun({text:layout.journal,font:"Times New Roman",size:18}),new TextRun({text:"\t"}),new TextRun({children:[PageNumber.CURRENT],font:"Times New Roman",size:18})],
+    tabStops: [{ type: TabStopType.RIGHT, position: mm(layout.widthMm - layout.leftMm - layout.rightMm) }],
+    border: { bottom: {style: BorderStyle.SINGLE, size:4, color:"000000",space:1} },
+  })] }) });
   return Packer.toBuffer(
     new Document({
       creator: "scrapeTx",
@@ -399,18 +426,18 @@ async function renderDocx(title, blocks) {
       styles: {
         default: {
           document: {
-            run: { font: "Times New Roman", size: 24 },
-            paragraph: { spacing: { after: 160, line: 300 } },
+            run: { font: "Times New Roman", size: layout ? layout.fontPt * 2 : 24 },
+            paragraph: { spacing: { after: layout ? 80 : 160, line: layout ? 240 : 300 } },
           },
           title: {
-            run: { font: "Arial", size: 44, bold: true, color: "000000" },
+            run: { font: layout ? "Times New Roman" : "Arial", size: layout ? 32 : 44, bold: true, color: "000000" },
           },
           heading1: {
-            run: { font: "Arial", size: 32, bold: true, color: "000000" },
+            run: { font: layout ? "Times New Roman" : "Arial", size: layout ? 22 : 32, bold: true, color: "000000" },
             paragraph: { spacing: { before: 280, after: 140 }, keepNext: true },
           },
           heading2: {
-            run: { font: "Arial", size: 28, bold: true, color: "000000" },
+            run: { font: layout ? "Times New Roman" : "Arial", size: layout ? 22 : 28, bold: true, color: "000000" },
           },
           heading3: {
             run: { font: "Arial", size: 26, bold: true, color: "000000" },
@@ -420,7 +447,10 @@ async function renderDocx(title, blocks) {
           heading6: { run: { color: "000000" } },
         },
       },
-      sections: [
+      sections: layout ? [
+        { properties: {page: manuscriptPage}, headers:manuscriptHeaders(), children: children.slice(0,bodyStart) },
+        { properties: {type: SectionType.CONTINUOUS,column: {count: layout.columns,space: mm(layout.columnGapMm),equalWidth: true},page: manuscriptPage}, children: children.slice(bodyStart) },
+      ] : [
         {
           properties: {
             page: {
@@ -695,14 +725,18 @@ export function createExportRouter({ loadImage } = {}) {
       const title = field(req.body?.title, "title", 200);
       const content = field(req.body?.content, "content", 200000);
       const format = req.body?.format;
+      const layoutId = req.body?.layout;
+      if (layoutId !== undefined && (typeof layoutId !== "string" || !Object.hasOwn(journalLayouts, layoutId)))
+        throw new ExportError("Choose a supported manuscript layout.");
+      const layout = layoutId ? journalLayouts[layoutId] : undefined;
       if (!["docx", "tex", "html"].includes(format))
         throw new ExportError("format must be docx, tex, or html.");
       const blocks = parseMarkdown(content);
       const output =
         format === "docx"
-          ? await renderDocx(title, blocks)
+          ? await renderDocx(title, blocks, layout)
           : format === "tex"
-            ? renderLatex(title, blocks)
+            ? renderLatex(title, blocks, layout)
             : renderHtml(title, blocks);
       sendFile(res, output, title, format);
     } catch (error) {

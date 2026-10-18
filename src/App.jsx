@@ -1,3 +1,4 @@
+import RecentSearches from "./RecentSearches.jsx";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples } from "./tool-examples.js";
 import { wantsResearchGuide } from "../shared/research-guide.js";
@@ -105,6 +106,7 @@ const ResearchChat = lazy(() => import("./ResearchChat.jsx"));
 const HomeWorkspace = lazy(() => import("./HomeWorkspace.jsx"));
 const LibraryWorkspace = lazy(() => import("./LibraryWorkspace.jsx"));
 const SourceWorkspace = lazy(() => import("./SourceWorkspace.jsx"));
+const TemplateWritingWorkspace = lazy(() => import("./TemplateWritingWorkspace.jsx"));
 const TemplatesWorkspace = lazy(() => import("./TemplatesWorkspace.jsx"));
 const AgentGallery = lazy(() => import("./AgentGallery.jsx"));
 const AutomationWorkspace = lazy(() => import("./AutomationWorkspace.jsx"));
@@ -218,6 +220,7 @@ export default function App() {
   const navigate = useNavigate();
   const timer = useRef();
   const pendingLibrary = useRef(new Set());
+  const historyVersion = useRef(0);
   useEffect(() => {
     const media = window.matchMedia("(max-width: 759px)");
     const update = () => setIsNarrow(media.matches);
@@ -241,10 +244,11 @@ export default function App() {
     setToast({ message, error });
     timer.current = setTimeout(() => setToast(null), 4500);
   };
-  const refreshHistory = () =>
-    api("/api/history")
-      .then(setHistory)
-      .catch(() => {});
+  const refreshHistory = async () => {
+    const version = ++historyVersion.current;
+    try { const rows = await api("/api/history"); if (version === historyVersion.current) setHistory(rows); }
+    catch { /* Search results remain usable if history cannot refresh. */ }
+  };
   useEffect(() => {
     api("/api/config")
       .then(setWorkspaceConfig)
@@ -258,7 +262,7 @@ export default function App() {
     setMobile(false);
     document.querySelector("main")?.scrollTo(0, 0);
     window.scrollTo(0, 0);
-    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation", "/read-pdf": "PDF Reader" }[location.pathname] || "Research workspace"} · scrapeTx`;
+    document.title = `${navigation.find((n) => n[0] === location.pathname)?.[2] || { "/library": "My Library", "/diagrams": "Diagrams", "/presentation": "Presentation", "/read-pdf": "PDF Reader", "/template-writing": "Template manuscript" }[location.pathname] || "Research workspace"} · scrapeTx`;
   }, [location.pathname]);
   const savePaper = async (p) => {
     if (pendingLibrary.current.has(p.id)) return;
@@ -280,6 +284,15 @@ export default function App() {
     } finally {
       pendingLibrary.current.delete(p.id);
     }
+  };
+  const deleteHistory = async (id) => {
+    await api("/api/history" + (id ? "/" + encodeURIComponent(id) : ""), { method: "DELETE" });
+    historyVersion.current++;
+    if (id) {
+      const query = history.find(h => h.id === id)?.query;
+      setHistory(rows => rows.filter(h => h.id !== id && h.query !== query));
+    } else setHistory([]);
+    notify(id ? "Search history deleted permanently." : "All recent searches deleted permanently.");
   };
   const refreshLibrary = () => api("/api/library").then(setLibrary);
   const saveNote = async (data) => {
@@ -303,12 +316,12 @@ export default function App() {
     {
       "/library": "My Library",
       "/diagrams": "Diagrams",
-      "/presentation": "Presentation", "/read-pdf": "PDF Reader",
+      "/presentation": "Presentation", "/read-pdf": "PDF Reader", "/template-writing": "Template manuscript",
     }[location.pathname] ||
     "Research workspace";
   return (
     <Ctx.Provider
-      value={{ library, savePaper, refreshLibrary, saveNote, history, refreshHistory, notify, navigate }}
+      value={{ library, savePaper, refreshLibrary, saveNote, history, refreshHistory, deleteHistory, notify, navigate }}
     >
       <div
         className={`app ${collapsed ? "collapsed" : ""} ${mobile ? "mobile-open" : ""}`}
@@ -352,30 +365,7 @@ export default function App() {
             {navigation.filter(([path]) => paths.includes(path)).map(([path, Icon, name]) => <NavLink key={path} to={path} title={name} className={({isActive}) => `nav-item ${isActive ? "active" : ""}`}><Icon size={17} strokeWidth={1.8} aria-hidden="true"/><span>{name}</span></NavLink>)}
           </details>)}
           <div className="sidebar-secondary">
-            {!collapsed && history.length > 0 && (
-              <div className="recent">
-                <span className="section-label">Recent searches</span>
-                {history
-                  .filter(
-                    (h, i, a) => a.findIndex((x) => x.query === h.query) === i,
-                  )
-                  .slice(0, 3)
-                  .map((h) => (
-                    <Link
-                      key={h.id}
-                      to={
-                        "/search?q=" +
-                        encodeURIComponent(h.query) +
-                        "&source=" +
-                        h.source
-                      }
-                    >
-                      <MessageSquare size={13} />
-                      <span>{h.query}</span>
-                    </Link>
-                  ))}
-              </div>
-            )}
+            {!collapsed && <RecentSearches compact limit={3} />}
           </div>
           </div>
         </aside>
@@ -456,6 +446,7 @@ export default function App() {
               <Route path="/sources/:sourceId" element={<SourceWorkspace />} />
               <Route path="/agents" element={<AgentGallery />} />
               <Route path="/automations" element={<AutomationWorkspace />} />
+              <Route path="/template-writing" element={<TemplateWritingWorkspace key={location.search} />} />
               <Route path="/templates" element={<TemplatesWorkspace />} />
               <Route path="/read-pdf" element={<SourcePdfReader />} />
               <Route path="/chat-pdf" element={<PdfWorkspace />} />
@@ -913,33 +904,7 @@ function ResearchPage() {
       <PromptSuggestions key={source} examples={source === "pubmed" || source === "europepmc" ? toolExamples.pubmed : toolExamples.search} value={q} onChoose={setQ} disabled={busy} inputId="research-query" />
       {!query && (
         <>
-          {history.length > 0 && (
-            <div className="search-history">
-              <h3>
-                <Clock size={16} /> My searches
-              </h3>
-              {history
-                .filter(
-                  (h, i, a) => a.findIndex((x) => x.query === h.query) === i,
-                )
-                .slice(0, 5)
-                .map((h) => (
-                  <Link
-                    key={h.id}
-                    to={
-                      "/search?q=" +
-                      encodeURIComponent(h.query) +
-                      "&source=" +
-                      h.source
-                    }
-                  >
-                    <Search size={15} />
-                    <span>{h.query}</span>
-                    <ChevronRight size={15} />
-                  </Link>
-                ))}
-            </div>
-          )}
+          <RecentSearches limit={5} />
           <div className="research-intro">
             <div className="eyebrow">
               A LITTLE STRUCTURE. A LOT MORE CLARITY.

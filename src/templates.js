@@ -36,6 +36,14 @@ const make = (id, title, kind, description, topics, sections, extra = {}) => ({
 });
 
 export const templates = [
+  make("journal-of-epidemiology-and-global-health", "Journal of Epidemiology and Global Health", "Journal Article", "The JEGH manuscript structure and two-column layout from your supplied LaTeX template.", ["Medicine", "Biology"], [
+    section("Abstract", "Summarize the question, methods, supported findings, and limitations."),
+    section("Keywords", "Provide specific keywords separated by semicolons."),
+    section("Introduction", "Explain the research question and cite the original supporting sources."),
+    section("Methods", "Describe only methods actually performed. Clearly identify missing study data."),
+    section("Results", "Report supplied results, or distinguish a bounded literature summary from original findings."),
+    section("References", "Include only real sources cited in the manuscript, with original source links."),
+  ], { publisher: "Atlantis Press", layoutId: "jegh", origin: "User-supplied LaTeX template", guidanceUrl: "https://d-nb.info/1385649526/34", guidanceLabel: "Source article used by the supplied template", guidanceNote: "Based on the LaTeX file supplied on 18 October 2026. Layout: 210 × 279 mm, two columns, 10 pt Times-like text. These are supplied-template specifications; check current journal guidance before submitting." }),
   make("research-paper", "Research Paper", "Journal Article", "A research manuscript from abstract to references.", ["Medicine", "Biology", "Chemistry", "Engineering"], research),
   make("literature-review", "Literature Review", "Journal Article", "A thematic review that keeps claims connected to their sources.", ["Medicine", "Biology", "Chemistry", "Social Sciences"], review),
   make("pharma-literature-review", "Pharmaceutical Literature Review", "Journal Article", "Compare drug evidence, study populations, efficacy outcomes, and safety findings.", ["Medicine", "Pharmacology"], [
@@ -173,7 +181,7 @@ export const templates = [
 ];
 
 export const templateById = (id) => templates.find((item) => item.id === id || item.title === id);
-export const templatePath = (item) => "/ai-writer?" + new URLSearchParams({ template: item.id });
+export const templatePath = (item) => "/?" + new URLSearchParams({ template: item.id });
 export function templateContent(item) {
   return `# ${item.title}\n\nWriting starter — replace prompts with your own work and verified evidence.\n${item.guidanceUrl ? `\nGuidance: ${item.guidanceLabel}\n${item.guidanceUrl}\n${item.guidanceNote}\n` : ""}\n${item.sections.map(({ heading, prompt }) => `## ${heading}\n${prompt}`).join("\n\n")}\n`;
 }

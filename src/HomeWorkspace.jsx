@@ -1,14 +1,17 @@
+import "./template-writing.css";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples, sourceExamples } from "./tool-examples.js";
 import { wantsResearchGuide } from "../shared/research-guide.js";
-import React, { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useRef, useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight, ArrowRight, Search, FileText, PenLine, Network, Presentation,
-  Quote, Database, Check, ChevronLeft, ChevronRight, Clock,
+  Quote, Database, Check, X, Code2, Download, ChevronLeft, ChevronRight, Clock,
 } from "lucide-react";
 import { Composer, useApp } from "./App.jsx";
-import { sourceUrl } from "./lib.js";
+import { templateById } from "./templates.js";
+import { templateRequest, templateFilename, templateLatex } from "./template-writing.js";
+import { download, sourceUrl } from "./lib.js";
 import { researchSources, researchSourcePath } from "./research-sources.js";
 import { researchModePath } from "./research-modes.js";
 import SourceIcon from "./SourceIcon.jsx";
@@ -28,7 +31,10 @@ const tools = [
 ];
 
 export default function HomeWorkspace() {
-  const [value, setValue] = useState("");
+  const [params, setParams] = useSearchParams();
+  const template = templateById(params.get("template"));
+  const [value, setValue] = useState(() => template ? templateRequest(template) : "");
+  useEffect(() => { if (template) setValue(templateRequest(template)); }, [template?.id]);
   const [mode, setMode] = useState("search");
   const [source, setSource] = useState("deep");
   const [researchMode, setResearchMode] = useState("deep");
@@ -41,6 +47,10 @@ export default function HomeWorkspace() {
     .slice(0, 3);
 
   function submit(task = mode) {
+    if (template) {
+      navigate("/template-writing?" + new URLSearchParams({template:template.id}), {state:{request:value}});
+      return;
+    }
     const params = new URLSearchParams({ topic: value });
     if (task === "search" && wantsResearchGuide(value)) navigate("/chat?guide=1&q=" + encodeURIComponent(value));
     else if (task === "workflow") navigate("/research-workflow?" + params);
@@ -70,9 +80,12 @@ export default function HomeWorkspace() {
           </div>
           <aside className="studio-brand-note" aria-label="Research, distilled"><BrandTagline /><p>From complexity to clarity.<br />Find. Understand. Extract.</p></aside>
         </div>
-        <div className="studio-composer-frame"><Composer value={value} setValue={setValue} onSubmit={() => submit()} mode={mode}
+        <div className="studio-composer-frame">
+          {template && <div className="template-attachment" aria-label="Attached writing template"><Code2 size={18} aria-hidden="true"/><span>{templateFilename(template)}</span><button type="button" aria-label="Download attached template" onClick={() => download(templateFilename(template),templateLatex(template),"application/x-tex")}><Download size={17}/></button><button type="button" aria-label="Remove attached template" onClick={() => {setParams({});setValue("");}}><X size={17}/></button></div>}
+          <Composer value={value} setValue={setValue} onSubmit={() => submit()} mode={mode}
           setMode={setMode} researchMode={researchMode} setResearchMode={(id) => {setResearchMode(id);setSource("deep");}} placeholder={source === "deep" ? "Ask a research question, compare studies, or explore a drug…" : active.placeholder} /></div>
-        <PromptSuggestions key={source + mode} examples={mode === "diagram" ? toolExamples.diagrams : mode === "slides" ? toolExamples.presentation : mode === "draft" ? toolExamples.writer : mode === "review" ? toolExamples.workflow : source === "deep" ? toolExamples.home : sourceExamples[source]} value={value} onChoose={["zotero", "mendeley"].includes(source) && mode === "search" ? undefined : setValue} hint={["zotero", "mendeley"].includes(source) && mode === "search" ? "Choose a question for help with your reference library." : "Choose one to fill the input, then edit it or run the tool."} />
+        {!template && <PromptSuggestions key={source + mode} examples={mode === "diagram" ? toolExamples.diagrams : mode === "slides" ? toolExamples.presentation : mode === "draft" ? toolExamples.writer : mode === "review" ? toolExamples.workflow : source === "deep" ? toolExamples.home : sourceExamples[source]} value={value} onChoose={["zotero", "mendeley"].includes(source) && mode === "search" ? undefined : setValue} hint={["zotero", "mendeley"].includes(source) && mode === "search" ? "Choose a question for help with your reference library." : "Choose one to fill the input, then edit it or run the tool."} />}
+        {template && <p className="template-start-hint">Replace the blank with your topic, or submit to inspect the template first. <Link to="/templates">Choose a different template</Link></p>}
         <div className="home-guide-start"><Link to="/chat?guide=1&q=What%20can%20scrapeTx%20help%20me%20with%3F">What can scrapeTx help me with? <ArrowRight size={14} aria-hidden="true" /></Link></div>
         <div className="home-source-heading"><span>USE</span><p>{active.description}</p>
           <div className="source-rail-controls"><button type="button" onClick={() => setAllSources(!allSources)} aria-expanded={allSources}>{allSources ? "Collapse" : "Show all"}</button>

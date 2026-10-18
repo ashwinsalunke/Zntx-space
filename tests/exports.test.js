@@ -241,3 +241,22 @@ test("PowerPoint embeds a workspace illustration with editable text and provenan
     await new Promise((r) => server.close(r));
   }
 });
+
+test("supplied JEGH geometry is preserved in DOCX and LaTeX, with full-width front matter and safe user text", () =>
+  service(async base => {
+    const content="## Abstract\nA short abstract.\n\n## Keywords\nepidemiology; resistance\n\n## Introduction\nActual text. \\input{secret}\n\n## Methods\nSource retrieval only.\n\n## Results\nNo original data supplied.\n\n## References\nhttps://doi.org/10.1234/real";
+    const r=await post(base,'/document',{title:'Working manuscript',content,format:'docx',layout:'jegh'});
+    assert.equal(r.status,200);
+    const zip=await JSZip.loadAsync(await r.arrayBuffer()), xml=await zip.file('word/document.xml').async('string');
+    assert.match(xml,/w:w="11906"/);assert.match(xml,/w:h="15817"/);
+    assert.match(xml,/w:top="680"/);assert.match(xml,/w:bottom="1587"/);
+    assert.match(xml,/<w:cols[^>]*w:num="2"/);assert.match(xml,/w:space="340"/);
+    const styles=await zip.file('word/styles.xml').async('string');assert.match(styles,/w:sz w:val="20"/);
+    assert.match(await zip.file('word/header1.xml').async('string'),/Journal of Epidemiology and Global Health/);
+    assert.match(await zip.file('word/header1.xml').async('string'),/PAGE/);
+    const tex=await post(base,'/document',{title:'Working manuscript',content,format:'tex',layout:'jegh'}).then(r=>r.text());
+    assert.match(tex,/10pt,twocolumn/);assert.match(tex,/paperheight=279mm/);assert.match(tex,/\\twocolumn\[/);
+    assert.ok(tex.indexOf('A short abstract.') < tex.indexOf('\\end{minipage}'));
+    assert.doesNotMatch(tex,/\\input\{secret\}/);assert.match(tex,/https:\/\/doi.org\/10.1234\/real/);
+    for (const layout of ['../evil','__proto__','constructor',{}]) assert.equal((await post(base,'/document',{title:'T',content:'text',format:'tex',layout})).status,400);
+  }));

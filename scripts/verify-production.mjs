@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
+import {randomBytes} from 'node:crypto';
 import assert from 'node:assert/strict';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const staging = await mkdtemp(join(tmpdir(), 'scrapetx-production-'));
@@ -40,6 +41,23 @@ try {
   assert.equal(logo.status, 200); assert.equal(logo.headers.get('x-content-type-options'), 'nosniff');
   assert.equal((await fetch(base + '/api/library')).status, 401);
   assert.equal((await fetch(base + '/api/health', { headers: { Origin: 'https://unrelated.example' } })).status, 403);
+  // History deletion removes all duplicate queries, not just the visible listing,
+  // while retaining another workspace and independent saved source records.
+  const owner=randomBytes(32).toString('hex'),other=randomBytes(32).toString('hex');
+  const call=async(token,method,path,data)=>{const r=await fetch(base+path,{method,headers:{'Content-Type':'application/json','X-Workspace-Token':token},body:data?JSON.stringify(data):undefined});assert.ok(r.ok,await r.clone().text());return r.json();};
+  const query='bacteria (antibiotic), data & safety';
+  for(const id of ['a','b']) await call(owner,'PUT','/api/records/searches/'+id,{query,source:'crossref'});
+  await call(owner,'PUT','/api/records/searches/c',{query:'unrelated',source:'pubmed'});
+  await call(other,'PUT','/api/records/searches/a',{query});
+  await call(owner,'PUT','/api/records/papers/kept',{title:'Saved source'});
+  await call(owner,'DELETE','/api/history/a');
+  assert.equal((await call(owner,'GET','/api/history')).length,1);
+  assert.equal((await call(other,'GET','/api/history')).length,1);
+  await call(owner,'DELETE','/api/history');
+  assert.equal((await call(owner,'GET','/api/history')).length,0);
+  assert.equal((await call(owner,'GET','/api/library')).length,1);
+  assert.equal((await fetch(base+'/api/history',{method:'DELETE'})).status,401);
+  console.log('PASS: permanent history deletion, duplicate removal, workspace isolation and saved-source preservation.');
   const config = await (await fetch(base + '/api/config')).json();
   assert.equal(config.cloud, false, 'Production smoke must not use real cloud credentials');
   console.log('PASS: isolated production startup, deep links, provider assets, JSON API 404s, asset 404s, workspace-token and origin checks.');
