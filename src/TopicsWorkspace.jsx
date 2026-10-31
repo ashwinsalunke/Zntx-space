@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -73,8 +74,9 @@ const labels = {
   focus: "What matters most",
 };
 export default function TopicsWorkspace() {
+  const api = useProjectApi();
   const [params, setParams] = useSearchParams(),
-    { navigate } = useApp();
+    { navigate, activeProjectId, refreshProjects, notify } = useApp();
   const [cached] = useState(() => cachedScan(params));
   const [query, setQuery] = useState(
       params.get("topic") || params.get("q") || cached?.scan.query || "",
@@ -642,6 +644,13 @@ export default function TopicsWorkspace() {
                     >
                       Save to notebook
                     </Button>
+                    {activeProjectId && <Button onClick={async () => { try {
+                      const project = await api('/api/records/projects/' + encodeURIComponent(activeProjectId));
+                      const question = t.question.replace(/\[\[cite:[^\]]+\]\]/g, '');
+                      await api('/api/records/projects/' + encodeURIComponent(activeProjectId), {method:'PUT',body:JSON.stringify({...project,question})});
+                      await api('/api/records/notes/' + crypto.randomUUID(), {method:'PUT',body:JSON.stringify({type:'research-topic',title:t.title,content:question+'\n\n'+t.approach+'\n\n'+t.limitation,topic:t,sources:topicSourceSummary(t,sources),citations:topicSourceSummary(t,sources)})});
+                      await refreshProjects(); notify('Topic saved as your project question.');
+                    } catch(e) {setError(e.message);} }}>Use as project topic</Button>}
                     <Link
                       className="btn"
                       to={

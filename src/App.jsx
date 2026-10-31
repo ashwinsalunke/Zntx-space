@@ -1,3 +1,6 @@
+import { useProjectApi } from "./useProjectApi.js";
+import ProjectWorkspace, { ProjectSelector, useProjectWorkspace } from "./ProjectWorkspace.jsx";
+import { belongsToProject } from "../shared/project-workspace.js";
 import RecentSearches from "./RecentSearches.jsx";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples } from "./tool-examples.js";
@@ -220,6 +223,7 @@ export default function App() {
   const [status, setStatus] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const projectContext = useProjectWorkspace(navigate);
   const timer = useRef();
   const pendingLibrary = useRef(new Set());
   const historyVersion = useRef(0);
@@ -270,7 +274,14 @@ export default function App() {
     if (pendingLibrary.current.has(p.id)) return;
     pendingLibrary.current.add(p.id);
     try {
-      if (library.some((x) => x.id === p.id)) {
+      if (projectContext.activeProjectId && !library.some(x => x.id === p.id && belongsToProject(x, projectContext.activeProjectId))) {
+        if (!library.some(x => x.id === p.id)) await api("/api/library", {method:"POST", projectId:projectContext.activeProjectId, body:JSON.stringify(p)});
+        await api("/api/project-items/papers/" + encodeURIComponent(p.id), {method:"POST",body:JSON.stringify({projectId:projectContext.activeProjectId})});
+        await refreshLibrary();
+        notify("Source saved to this project.");
+      } else if (projectContext.activeProjectId) {
+        notify("Source is already saved in this project. Manage it in My Library.");
+      } else if (library.some((x) => x.id === p.id)) {
         await api("/api/library/" + encodeURIComponent(p.id), {
           method: "DELETE",
         });
@@ -299,7 +310,7 @@ export default function App() {
   const refreshLibrary = () => api("/api/library").then(setLibrary);
   const saveNote = async (data) => {
     const record = { ...data, id: data.id || crypto.randomUUID(), type: "research-note", createdAt: data.createdAt || new Date().toISOString() };
-    await api("/api/records/notes/" + record.id, { method: "PUT", body: JSON.stringify(record) });
+    await api("/api/records/notes/" + record.id, { method: "PUT", projectId: projectContext.activeProjectId, body: JSON.stringify(record) });
     notify("Saved to My Library.");
     return record;
   };
@@ -323,7 +334,7 @@ export default function App() {
     (location.pathname.startsWith("/notebooks/") ? "Notebook" : "Research workspace");
   return (
     <Ctx.Provider
-      value={{ library, savePaper, refreshLibrary, saveNote, history, refreshHistory, deleteHistory, notify, navigate }}
+      value={{ ...projectContext, allLibrary: library, library: projectContext.activeProjectId ? library.filter(p => belongsToProject(p, projectContext.activeProjectId) || projectContext.activeProject?.papers?.[p.id]) : library, savePaper, refreshLibrary, saveNote, history: projectContext.activeProjectId ? history.filter(h => belongsToProject(h, projectContext.activeProjectId)) : history, refreshHistory, deleteHistory, notify, navigate }}
     >
       <div
         className={`app ${collapsed ? "collapsed" : ""} ${mobile ? "mobile-open" : ""}`}
@@ -404,6 +415,7 @@ export default function App() {
               )}
             </div>
             <div className="header-actions">
+              <ProjectSelector />
               <button
                 className="text-btn public-data"
                 onClick={() => setStatus(true)}
@@ -439,7 +451,8 @@ export default function App() {
               <Route path="/pharma" element={<PharmaHub />} />
               <Route path="/docking" element={<DockingWorkspace />} />
               <Route path="/verification" element={<SourceVerification />} />
-              <Route path="/projects" element={<ResearchProjects />} />
+              <Route path="/projects" element={<ProjectWorkspace />} />
+              <Route path="/projects/screening" element={<ResearchProjects />} />
               <Route path="/research-workflow" element={<ResearchWorkflow />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/chat" element={<ResearchChat key={location.pathname + location.search} />} />
@@ -791,6 +804,7 @@ function savedFilters(value) {
   catch { return defaultResearchFilters; }
 }
 function ResearchPage() {
+  const api = useProjectApi();
   const [params, setParams] = useSearchParams();
   const query = params.get("q") || "";
   const provider = params.get("source") || "crossref";
@@ -1091,7 +1105,7 @@ function ResearchPage() {
   );
 }
 function PaperCard({ paper: p, index, onOpen, selected, onSelect }) {
-  const { library, savePaper } = useApp();
+  const { library, savePaper, activeProjectId } = useApp();
   const saved = library.some((x) => x.id === p.id);
   return (
     <article className="paper-card">
@@ -1143,7 +1157,7 @@ function PaperCard({ paper: p, index, onOpen, selected, onSelect }) {
       <button
         className={`icon-btn bookmark ${saved ? "saved" : ""}`}
         aria-label={
-          saved ? "Remove paper from library" : "Save paper to library"
+          saved ? (activeProjectId ? "Saved in this project" : "Remove paper from library") : (activeProjectId ? "Save paper to project" : "Save paper to library")
         }
         onClick={() => savePaper(p)}
       >
@@ -1397,11 +1411,12 @@ function PaperDetail({ paper: p, onClose }) {
   );
 }
 function Writer() {
+  const api = useProjectApi();
   const [params] = useSearchParams();
-  const { notify, library } = useApp();
+  const { notify, library, activeProject, activeProjectId } = useApp();
   const [sources, setSources] = useState([]);
   const [exportFormat, setExportFormat] = useState("docx");
-  const [topic, setTopic] = useState(params.get("topic") || "");
+  const [topic, setTopic] = useState(params.get("topic") || activeProject?.question || activeProject?.title || "");
   const [title, setTitle] = useState(
     templateById(params.get("template"))?.title || params.get("template") || "Untitled document",
   );
@@ -1413,7 +1428,7 @@ function Writer() {
   const editor = useRef();
   useEffect(() => {
     api("/api/drafts")
-      .then(setDrafts)
+      .then(rows => { setDrafts(activeProjectId ? rows.filter(d => belongsToProject(d, activeProjectId)) : rows); const selected = rows.find(d => d.id === params.get("id")); if(selected) {setId(selected.id);setTitle(selected.title);setContent(selected.content);setSaved(true);} })
       .catch((e) => notify(e.message, true));
     const t = params.get("template");
     if (t) {
@@ -1457,7 +1472,7 @@ function Writer() {
         body: JSON.stringify({ title, content }),
       });
       setSaved(true);
-      setDrafts(await api("/api/drafts"));
+      setDrafts((await api("/api/drafts")).filter(d => !activeProjectId || belongsToProject(d,activeProjectId)));
       notify("Draft saved to your workspace.");
     } catch (e) {
       notify(e.message, true);

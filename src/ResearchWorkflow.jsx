@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples } from "./tool-examples.js";
 import { GeneratedImage, ImageGenerator } from "./GeneratedImage.jsx";
@@ -98,12 +99,13 @@ function cacheWorkflow(value) {
 }
 
 export default function ResearchWorkflow({ presentation = false }) {
-  const { notify, navigate, library } = useApp();
+  const api = useProjectApi();
+  const { notify, navigate, library, activeProject, activeProjectId } = useApp();
   const [params, setParams] = useSearchParams();
   const id = params.get("id");
   const [state, setState] = useState(() =>
     newWorkflow({
-      topic: params.get("topic") || "",
+      topic: params.get("topic") || activeProject?.question || activeProject?.title || "",
       deliverable: presentation ? "presentation" : "paper-and-slides",
       output: presentation ? "slides" : "paper",
       templateId: workflowTemplate(params.get("template")).id,
@@ -237,7 +239,7 @@ export default function ResearchWorkflow({ presentation = false }) {
         if (mounted.current)
           setRecent(
             (Array.isArray(data) ? data : data.records || [])
-              .filter((p) => p.type === "research-workflow")
+              .filter((p) => p.type === "research-workflow" && (!activeProjectId || p.projectIds?.includes(activeProjectId)))
               .slice(0, 6),
           );
       })
@@ -291,7 +293,7 @@ export default function ResearchWorkflow({ presentation = false }) {
             new Date(record.workflow.updatedAt || 0)
             ? recovery
             : record.workflow;
-        current.current = newWorkflow({ ...restore, id: record.id });
+        current.current = newWorkflow({ ...restore, id: record.id, ...(presentation ? { output: "slides", step: 2 } : {}) });
         setState(current.current);
         setSourceQuery(restore.query || "");
         setSaveStatus(restore === recovery ? "pending" : "saved");
@@ -902,6 +904,7 @@ export default function ResearchWorkflow({ presentation = false }) {
           )}
         </div>
       </header>
+      {activeProjectId && library.length > 0 && !state.sources.length && <div className="project-home-card"><BookOpen size={20}/><div><strong>{library.length} sources in this project</strong><p>Bring your saved papers into this workflow, then choose the evidence to use.</p></div><Button disabled={!!busy} onClick={() => run("Opening project sources…", async signal => { await ensureSession(signal); update({sources: normalizeSources(library), step:1}); await persist(); })}>Use project sources</Button></div>}
       <nav className="rf-steps" aria-label="Research workflow steps">
         {steps.map((label, index) => (
           <button

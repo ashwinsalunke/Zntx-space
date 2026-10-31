@@ -1,3 +1,4 @@
+import { ProjectHomeCard } from "./ProjectWorkspace.jsx";
 import "./template-writing.css";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples, sourceExamples } from "./tool-examples.js";
@@ -72,6 +73,7 @@ export default function HomeWorkspace() {
 
   return (
     <div className="studio-home">
+      <ProjectHomeCard />
       <section className="studio-hero">
         <div className="studio-heading">
           <div><span className="studio-kicker">Research workspace</span>

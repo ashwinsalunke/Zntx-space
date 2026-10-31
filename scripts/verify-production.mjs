@@ -30,7 +30,7 @@ try {
     try { if ((await fetch(base + '/api/health')).ok) break; } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  for (const route of ['/research-workflow','/concepts','/notebooks','/notebooks/example','/library?folder=example&tab=notebooks']) {
+  for (const route of ['/projects','/projects/screening','/research-workflow','/concepts','/notebooks','/notebooks/example','/library?folder=example&tab=notebooks']) {
     const page = await fetch(base + route);
     assert.equal(page.status, 200); assert.match(await page.text(), /<div id="root">/);
   }
@@ -67,6 +67,17 @@ try {
   assert.deepEqual((await call(owner,'GET','/api/records/reviews/folder-test')).itemKeys,['note:notebook-test']);
   assert.equal((await fetch(base+'/api/records/notes/notebook-test',{headers:{'X-Workspace-Token':other}})).status,404);
   console.log('PASS: notebook documents, source metadata, folder membership, and workspace isolation.');
+  await call(owner,'PUT','/api/records/projects/shared-a',{type:'research-project',title:'Shared research',papers:{}});
+  const linkedResponse=await fetch(base+'/api/drafts/project-draft',{method:'PUT',headers:{'Content-Type':'application/json','X-Workspace-Token':owner,'X-Research-Project':'shared-a'},body:JSON.stringify({title:'Project draft',content:'Saved evidence-based writing'})});
+  assert.equal(linkedResponse.status,200);
+  assert.deepEqual((await call(owner,'GET','/api/records/drafts/project-draft')).projectIds,['shared-a']);
+  await call(owner,'PUT','/api/records/drafts/project-draft',{title:'Edited draft',content:'Still in original project'});
+  assert.deepEqual((await call(owner,'GET','/api/records/drafts/project-draft')).projectIds,['shared-a']);
+  await call(owner,'POST','/api/project-items/notes/notebook-test',{projectId:'shared-a'});
+  assert.deepEqual((await call(owner,'GET','/api/records/notes/notebook-test')).projectIds,['shared-a']);
+  const foreign=await fetch(base+'/api/records/notes/foreign-project',{method:'PUT',headers:{'Content-Type':'application/json','X-Workspace-Token':other,'X-Research-Project':'shared-a'},body:JSON.stringify({title:'Must not save'})});
+  assert.equal(foreign.status,400);
+  console.log('PASS: shared project creation, draft association, legacy autosaves, explicit notebook attachment and project workspace isolation.');
   const config = await (await fetch(base + '/api/config')).json();
   assert.equal(config.cloud, false, 'Production smoke must not use real cloud credentials');
   console.log('PASS: isolated production startup, deep links, provider assets, JSON API 404s, asset 404s, workspace-token and origin checks.');

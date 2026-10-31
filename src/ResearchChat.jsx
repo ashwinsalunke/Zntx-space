@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import { loadSavedChat } from "./saved-chat.js";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples } from "./tool-examples.js";
@@ -34,11 +35,12 @@ function reportPrompt(query, verified) {
   return `Answer this research question using only the supplied evidence: ${query}. Compare study approaches, findings, limitations and open questions. Cite claims and explicitly identify missing evidence.${verified ? " Structure the report as Research question, Evidence summary, Claim-to-source checks, Conflicting findings, Evidence gaps, and Limitations. Identify whether each claim is directly reported in a supplied abstract or is an interpretation. Do not claim a full-text, risk-of-bias, peer-review, or external citation audit was performed. Never infer missing effect sizes or results." : ""}`;
 }
 export default function ResearchChat() {
+  const api = useProjectApi();
   const { id: routeId } = useParams();
   const [params] = useSearchParams();
   const verified = params.get("mode") === "verified";
   const navigate = useNavigate();
-  const { notify, savePaper, library } = useApp();
+  const { notify, savePaper, library, activeProjectId } = useApp();
   const [id, setId] = useState(routeId || crypto.randomUUID());
   const [title, setTitle] = useState("New research");
   const [query, setQuery] = useState(params.get("q") || "");
@@ -57,7 +59,7 @@ export default function ResearchChat() {
   const pendingQuery = useRef("");
   useEffect(() => {
     api("/api/records/chats")
-      .then(setHistory)
+      .then(rows => setHistory(rows.filter(r => !activeProjectId || r.projectIds?.includes(activeProjectId))))
       .catch((e) => setError(e.message));
   }, []);
   useEffect(() => {

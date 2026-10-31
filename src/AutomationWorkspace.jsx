@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolQuestions } from "./tool-examples.js";
 import React, { useEffect, useRef, useState } from "react";
@@ -63,10 +64,11 @@ function RecordList({ records, changed = false }) {
 }
 
 export default function AutomationWorkspace() {
+  const api = useProjectApi();
   const { saveNote, notify } = useApp();
   const [params, setParams] = useSearchParams();
   const [watches, setWatches] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(params.get("id"));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [createKind, setCreateKind] = useState(null);

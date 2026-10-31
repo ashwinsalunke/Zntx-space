@@ -348,7 +348,7 @@ export default function ResearchProjects() {
     setLoadError("");
     try {
       const data = await api("/api/records/projects");
-      const values = Array.isArray(data) ? data : data.records || [];
+      const values = (Array.isArray(data) ? data : data.records || []).filter(p => p.type !== "research-workflow");
       current.current = values;
       setProjects(values);
     } catch (e) {

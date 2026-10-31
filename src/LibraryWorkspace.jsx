@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import NotebookPicker from "./NotebookPicker.jsx";
 import { isNotebook } from "./notebooks.js";
 import "./notebooks.css";
@@ -162,7 +163,9 @@ function ItemDetail({ item, onClose, onEdit, onOrganize }) {
   </Modal>;
 }
 export default function LibraryWorkspace() {
-  const { library, notify, navigate, refreshLibrary } = useApp();
+  const api = useProjectApi();
+  const { allLibrary, library: scopedLibrary, notify, navigate, refreshLibrary } = useApp();
+  const library = allLibrary || scopedLibrary;
   const [params, setParams] = useSearchParams();
   const [papers, setPapers] = useState(library || []);
   const [notes, setNotes] = useState([]);
@@ -204,6 +207,7 @@ export default function LibraryWorkspace() {
   useEffect(() => { load(); }, []);
   useEffect(() => { if (!exportOpen) return; const close = (e) => { if (e.key === "Escape") setExportOpen(false); }; document.addEventListener("keydown", close); return () => document.removeEventListener("keydown", close); }, [exportOpen]);
   const items = useMemo(() => [...papers.map((p) => ({ ...p, kind: "paper" })), ...notes.map((n) => ({ ...n, kind: "note" }))], [papers, notes]);
+  useEffect(() => { const key = params.get('item'); if (!key || loading) return; const item = items.find(i => itemKey(i) === key); if(item) setDetail(item); }, [params, loading]);
   const matchesType = (item,key) => key === "all" || key === "papers" && item.kind === "paper" || key === "notes" && item.kind !== "paper" && !isResearch(item) && !isNotebook(item) || key === "notebooks" && isNotebook(item) || ["research","chats"].includes(key) && isResearch(item) || key === "files" && !isResearch(item) && !isNotebook(item);
   const counts = Object.fromEntries(["all",...validTabs].map(key=>[key,items.filter(item=>matchesType(item,key)).length]));
   const folder = folders.find((f) => f.id === activeFolder);

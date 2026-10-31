@@ -1,3 +1,5 @@
+export function activeProjectKey() { return 'scrapetx-project:' + (localStorage.getItem('zntx-workspace-token') || ''); }
+export function getActiveProjectId() { return localStorage.getItem(activeProjectKey()) || ''; }
 export async function api(url, options = {}) {
   let token = localStorage.getItem("zntx-workspace-token");
   if (!/^[a-f0-9]{64}$/.test(token || "")) {
@@ -6,11 +8,13 @@ export async function api(url, options = {}) {
     ).join("");
     localStorage.setItem("zntx-workspace-token", token);
   }
+  const projectId = options.projectId === undefined ? getActiveProjectId() : options.projectId;
   const response = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       "X-Workspace-Token": token,
+      ...(projectId ? { "X-Research-Project": projectId } : {}),
       ...options.headers,
     },
   });
@@ -22,6 +26,7 @@ export async function api(url, options = {}) {
   }
   if (!response.ok)
     throw new Error(data.error || "Unable to complete this request.");
+  if (["PUT", "POST", "DELETE"].includes(options.method) && /^\/api\/records\/projects\//.test(url)) window.dispatchEvent(new Event("project-records-changed"));
   return data;
 }
 export function download(name, content, type = "text/plain") {

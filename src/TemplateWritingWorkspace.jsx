@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { FileText, Code2, Check, ArrowUp, Download, Save, LoaderCircle, X, ExternalLink } from "lucide-react";
@@ -11,6 +12,7 @@ import "./template-writing.css";
 const WorkflowEditor = lazy(() => import("./WorkflowEditor.jsx"));
 
 export default function TemplateWritingWorkspace() {
+  const api = useProjectApi();
   const [params] = useSearchParams(), location = useLocation(), navigate = useNavigate();
   const template = templateById(params.get("template")), recordId = params.get("id");
   const { notify } = useApp();

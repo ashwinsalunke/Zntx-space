@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -32,6 +33,8 @@ export default function NotebookWorkspace() {
   return id ? <NotebookDocument key={id} id={id} /> : <NotebookList />;
 }
 function NotebookList() {
+  const { activeProjectId } = useApp();
+  const api = useProjectApi();
   const [records, setRecords] = useState([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -41,7 +44,7 @@ function NotebookList() {
   useEffect(() => {
     const c = new AbortController();
     api("/api/records/notes", { signal: c.signal })
-      .then((n) => setRecords(n.filter(isNotebook)))
+      .then((n) => setRecords(n.filter(r => isNotebook(r) && (!activeProjectId || r.projectIds?.includes(activeProjectId)))))
       .catch((e) => {
         if (!c.signal.aborted) setError(e.message);
       })
@@ -129,6 +132,7 @@ function NotebookList() {
   );
 }
 function NotebookDocument({ id }) {
+  const api = useProjectApi();
   const { library = [] } = useApp();
   const [record, setRecord] = useState(null),
     [loading, setLoading] = useState(true),

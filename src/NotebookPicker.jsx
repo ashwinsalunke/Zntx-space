@@ -1,3 +1,4 @@
+import { useProjectApi } from "./useProjectApi.js";
 import React, { useEffect, useRef, useState } from "react";
 import { BookOpen, Plus } from "lucide-react";
 import { Button, Modal } from "./App.jsx";
@@ -15,6 +16,7 @@ export default function NotebookPicker({
   onClose,
   onSaved,
 }) {
+  const api = useProjectApi();
   const [notebooks, setNotebooks] = useState([]),
     [folders, setFolders] = useState([]),
     [choice, setChoice] = useState("new");

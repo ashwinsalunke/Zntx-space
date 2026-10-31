@@ -27,6 +27,8 @@ import { createConnectionsRouter } from "./connections.js";
 import { createGoogleSearchRouter } from "./google-search.js";
 import { createLibrarySyncRouter } from "./library-sync.js";
 import { createDockingRouter } from "./docking.js";
+import { createProjectWriter } from "./project-context.js";
+const writeProjectRecord = createProjectWriter({ getRecord, putRecord });
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = express();
 app.disable("x-powered-by");
@@ -192,11 +194,11 @@ app.get("/api/papers", async (req, res, next) => {
       cache.set(key, { time: Date.now(), data });
       if (cache.size > 100) cache.delete(cache.keys().next().value);
     }
-    await putRecord(token, "searches", randomUUID(), {
+    await writeProjectRecord(token, "searches", randomUUID(), {
       query: q,
       source,
       created_at: new Date().toISOString(),
-    }).catch(() => {});
+    }, req.get("X-Research-Project")).catch(() => {});
     res.json(data);
   } catch (e) {
     if (e.name === "TimeoutError")
@@ -230,7 +232,7 @@ app.post("/api/library", async (req, res, next) => {
         .json({ error: "A paper ID and title are required." });
     res
       .status(201)
-      .json(await putRecord(workspaceToken(req), "papers", p.id, p));
+      .json(await writeProjectRecord(workspaceToken(req), "papers", p.id, p, req.get("X-Research-Project")));
   } catch (e) {
     next(e);
   }
@@ -281,10 +283,17 @@ app.put("/api/drafts/:id", async (req, res, next) => {
       return res
         .status(400)
         .json({ error: "A title and content are required." });
-    res.json(await putRecord(workspaceToken(req), "drafts", req.params.id, d));
+    res.json(await writeProjectRecord(workspaceToken(req), "drafts", req.params.id, d, req.get("X-Research-Project")));
   } catch (e) {
     next(e);
   }
+});
+app.post("/api/project-items/:collection/:id", async (req, res, next) => {
+  try {
+    const projectId = req.body?.projectId;
+    if (typeof projectId !== 'string' || !projectId) return res.status(400).json({error:'Choose a project.'});
+    res.json(await writeProjectRecord(workspaceToken(req), req.params.collection, req.params.id, {}, projectId, true));
+  } catch (error) { next(error); }
 });
 app.get("/api/records/:collection", async (req, res, next) => {
   try {
@@ -296,11 +305,12 @@ app.get("/api/records/:collection", async (req, res, next) => {
 app.put("/api/records/:collection/:id", async (req, res, next) => {
   try {
     res.json(
-      await putRecord(
+      await writeProjectRecord(
         workspaceToken(req),
         req.params.collection,
         req.params.id,
         req.body,
+        req.get("X-Research-Project"),
       ),
     );
   } catch (e) {
