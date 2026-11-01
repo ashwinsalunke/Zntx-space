@@ -90,7 +90,6 @@ export default function ResearchChat() {
   useEffect(() => () => current.current?.abort(), []);
   async function persist(next, nextTitle) {
     try {
-      setSaveError("");
       const manifest = {
         id,
         title: nextTitle,
@@ -103,12 +102,10 @@ export default function ResearchChat() {
         body: JSON.stringify(manifest),
       });
       setHistory((v) => [manifest, ...v.filter((c) => c.id !== id)]);
+      setSaveError("");
     } catch (e) {
       setSaveError(e.message);
-      notify(
-        "Research results are visible, but cloud save failed. Export a backup or retry.",
-        true,
-      );
+      throw e;
     }
   }
   async function search(value = query, modeOverride) {
@@ -197,6 +194,8 @@ export default function ResearchChat() {
           body: JSON.stringify(turn),
         });
       await persist(turns, title);
+      setError(previous => previous === saveError ? "" : previous);
+      notify("Research saved to your workspace.");
     } catch (e) {
       setSaveError(e.message);
     } finally {
@@ -410,7 +409,7 @@ export default function ResearchChat() {
             </button>
           </div>
         )}
-        {error && (
+        {error && error !== saveError && (
           <p className="research-error" role="alert">
             {error}
           </p>

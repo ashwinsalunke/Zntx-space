@@ -14,7 +14,8 @@ test('home guidance remembers replies, preserves failed input, saves/reloads and
   HTMLElement.prototype.scrollTo = () => {};
   HTMLElement.prototype.scrollIntoView = () => {};
   const originalFetch = globalThis.fetch, calls = [], chats = [], notes = [];
-  let guideRequests = 0, failNext = false;
+  let guideRequests = 0, failNext = false, failManifest = true, failChatList = true, holdManifest = false, releaseManifest;
+  const cloudError = "Cloud workspace is unavailable. Your changes have not been saved. Please retry.";
   const response = data => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url), body = options.body ? JSON.parse(options.body) : null;
@@ -22,10 +23,10 @@ test('home guidance remembers replies, preserves failed input, saves/reloads and
     if (path === '/api/config') return response({ storage: 'Local SQLite' });
     if (['/api/library', '/api/history'].includes(path)) return response([]);
     if (path === '/api/ai/status') return response({ configured: true });
-    if (path === '/api/records/chats') return response(chats);
+    if (path === '/api/records/chats') { if(failChatList) {failChatList=false;return new Response(JSON.stringify({error:cloudError}),{status:503});} return response(chats); }
     if (path === '/api/records/notes') return response(notes);
-    if (path.startsWith('/api/records/notes/') && options.method === 'PUT') { notes.push(body); return response(body); }
-    if (path.startsWith('/api/records/chats/') && options.method === 'PUT') { const i = chats.findIndex(c => c.id === body.id); if (i >= 0) chats[i] = body; else chats.push(body); return response(body); }
+    if (path.startsWith('/api/records/notes/') && options.method === 'PUT') { const index=notes.findIndex(n=>n.id===body.id);if(index<0)notes.push(body);else notes[index]=body; return response(body); }
+    if (path.startsWith('/api/records/chats/') && options.method === 'PUT') { if(holdManifest)await new Promise(resolve=>{releaseManifest=resolve;}); if(failManifest)return new Response(JSON.stringify({error:cloudError}),{status:503}); const i = chats.findIndex(c => c.id === body.id); if (i >= 0) chats[i] = body; else chats.push(body); return response(body); }
     if (path.startsWith('/api/records/chats/')) return response(chats.find(c => c.id === path.split('/').at(-1)));
     if (path.startsWith('/api/records/notes/')) return response(notes.find(n => n.id === path.split('/').at(-1)));
     if (path === '/api/ai/generate') {
@@ -52,6 +53,19 @@ test('home guidance remembers replies, preserves failed input, saves/reloads and
     await wait(() => document.querySelector('.home-guide-start a'), 'home guidance entry');
     await click(document.querySelector('.home-guide-start a'));
     await wait(() => notes.length === 1 && !button('Bacteria')?.disabled, 'first guide reply saved');
+    await wait(()=>button('Retry save'),'initial cloud save failure');
+    assert.equal(document.querySelectorAll('.research-error').length,0,'The same storage failure is not duplicated above the save notice');
+    holdManifest=true;
+    await click(button('Retry save'));
+    await wait(()=>releaseManifest,'retry reaches the manifest save');
+    assert.ok(document.querySelector('.notice[role="alert"]'),'The failure notice stays visible until the complete save succeeds');
+    await act(async()=>{releaseManifest();});
+    await wait(()=>button('Retry save'),'failed retry remains actionable');
+    assert.equal(chats.length,0,'A failed save is not presented as a saved chat');
+    holdManifest=false;failManifest=false;
+    await click(button('Retry save'));
+    await wait(()=>chats.length===1 && !button('Retry save'),'retry succeeds after cloud recovery');
+    assert.equal(document.querySelector('.research-error'),null,'Recovered cloud-loading error is cleared after saving');
     assert.equal(calls.some(c => c.path.startsWith('/api/discovery/search')), false, 'Help does not search academic databases');
     assert.equal(calls.find(c => c.path === '/api/ai/generate').body.task, 'guide');
     failNext = true;
