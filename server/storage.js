@@ -1,3 +1,4 @@
+import { createCloudStorage } from "./cloud-storage.js";
 import "./env.js";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
@@ -66,42 +67,7 @@ function validate(collection, id, data) {
       { status: 400 },
     );
 }
-async function cloud(token, method, query, body) {
-  let response;
-  try {
-    response = await fetch(`${cloudUrl}/rest/v1/zntx_records?${query}`, {
-      method,
-      headers: {
-        apikey: cloudKey,
-        "X-Workspace-Token": token,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=representation",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(18000),
-    });
-  } catch {
-    throw Object.assign(
-      new Error(
-        "Cloud workspace is unavailable. Your changes have not been saved. Please retry.",
-      ),
-      { status: 503 },
-    );
-  }
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    console.error("Supabase storage error:", response.status, err.code || "");
-    throw Object.assign(
-      new Error(
-        response.status === 404
-          ? "Supabase workspace table is missing. Apply the included migration."
-          : "Supabase could not save or load your workspace. Please retry.",
-      ),
-      { status: 503 },
-    );
-  }
-  return response.status === 204 ? [] : response.json();
-}
+const cloud = createCloudStorage({url:cloudUrl,key:cloudKey});
 const hash = (token) => createHash("sha256").update(token).digest("hex");
 export async function listRecords(token, collection) {
   validate(collection);

@@ -25,7 +25,7 @@ export async function api(url, options = {}) {
     throw new Error("The server returned an incomplete response. Please retry.");
   }
   if (!response.ok)
-    throw new Error(data.error || "Unable to complete this request.");
+    throw Object.assign(new Error(data.error || "Unable to complete this request."), {status:response.status,code:data.code,retryable:data.retryable === true});
   if (["PUT", "POST", "DELETE"].includes(options.method) && /^\/api\/records\/projects\//.test(url)) window.dispatchEvent(new Event("project-records-changed"));
   return data;
 }

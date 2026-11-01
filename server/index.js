@@ -352,6 +352,7 @@ app.use((err, req, res, next) => {
     error: err.status
       ? err.message
       : "Unable to complete this request. Please retry.",
+    ...(err.code && /^CLOUD_/.test(err.code) ? {code:err.code,retryable:!!err.retryable} : {}),
   });
 });
 const port = Number(process.env.PORT) || 5180;
