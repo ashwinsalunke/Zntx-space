@@ -55,6 +55,35 @@ test("a first successful check establishes a baseline rather than new-paper aler
   assert.equal(checked.snapshot.limit, 20);
 });
 
+test("changing PubMed retrieval service establishes a fresh baseline, never false new-record alerts", () => {
+  const initial = applyWatchResponse(create(), { results: [paper(101)], total: 1 }, firstTime);
+  const backup = applyWatchResponse(initial, { results: [paper(202)], total: 10, retrievalMethod: "europe-pmc", warnings: ["NCBI unavailable; Europe PMC ranking differs."] }, secondTime);
+  assert.equal(backup.snapshot.retrievalMethod, "europe-pmc");
+  assert.equal(backup.lastCheck.isBaseline, true);
+  assert.equal(backup.lastCheck.baselineReason, "source-changed");
+  assert.deepEqual(backup.lastCheck.newRecords, []);
+  const digest = watchDigest(backup);
+  assert.match(digest.content, /Replacement baseline \(retrieval service changed\)/);
+  assert.match(digest.content, /Europe PMC \(PubMed-indexed records\)/);
+  assert.match(digest.content, /ranking differs/);
+  assert.equal(digest.citations[0].url, "https://pubmed.ncbi.nlm.nih.gov/202/");
+  const sameService = applyWatchResponse(backup, { results: [paper(202), paper(303)], retrievalMethod: "europe-pmc" });
+  assert.equal(sameService.lastCheck.isBaseline, false);
+  assert.deepEqual(sameService.lastCheck.newRecords.map(p => p.id), ["pubmed-303"]);
+  const recovered = applyWatchResponse(sameService, { results: [paper(101)] });
+  assert.equal(recovered.lastCheck.baselineReason, "source-changed");
+  assert.deepEqual(recovered.lastCheck.newRecords, []);
+});
+
+test("existing snapshots without retrieval metadata remain comparable with NCBI", () => {
+  const watch = applyWatchResponse(create(), { results: [paper(101)] }, firstTime);
+  delete watch.snapshot.retrievalMethod;
+  delete watch.snapshot.retrievedVia;
+  const next = applyWatchResponse(watch, { results: [paper(101), paper(202)], retrievalMethod: "ncbi" }, secondTime);
+  assert.equal(next.lastCheck.isBaseline, false);
+  assert.deepEqual(next.lastCheck.newRecords.map(p => p.id), ["pubmed-202"]);
+});
+
 test("trial checks detect explicit status and enrollment changes and preserve zero values", () => {
   const original = makeWatchSnapshot("trials", { results: [trial("NCT01234567"), trial("NCT11111111")], total: 2 }, firstTime);
   const next = makeWatchSnapshot("trials", { results: [trial("NCT01234567", { status: "COMPLETED", enrollment: 30 }), trial("NCT22222222")], total: 2 }, secondTime);

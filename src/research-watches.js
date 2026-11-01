@@ -91,12 +91,15 @@ export function makeWatchSnapshot(kind, response, now = new Date().toISOString()
   const total = Number(response.total);
   const warnings = (Array.isArray(response.warnings) ? response.warnings : []).map((warning) => text(warning, 1000)).filter(Boolean).slice(0, 5);
   if (supplied.length > records.length) warnings.push("Some records were duplicate or lacked usable identifiers and were not tracked.");
-  return { checkedAt: timestamp(now), retrievedAt: Number.isFinite(Date.parse(response.retrievedAt)) ? new Date(response.retrievedAt).toISOString() : timestamp(now), source: definition.source, total: Number.isFinite(total) && total >= 0 ? total : records.length, limit: definition.limit, records, warnings };
+  const mirror = kind === "literature" && response.retrievalMethod === "europe-pmc";
+  return { checkedAt: timestamp(now), retrievedAt: Number.isFinite(Date.parse(response.retrievedAt)) ? new Date(response.retrievedAt).toISOString() : timestamp(now), source: definition.source, retrievalMethod: kind === "literature" ? (mirror ? "europe-pmc" : "ncbi") : definition.source, retrievedVia: mirror ? "Europe PMC (PubMed-indexed records)" : definition.source, total: Number.isFinite(total) && total >= 0 ? total : records.length, limit: definition.limit, records, warnings };
 }
 
 export function compareWatchSnapshots(previous, next) {
   if (!next || !Array.isArray(next.records)) throw new Error("A successful result page is required before comparison.");
   if (!previous) return { isBaseline: true, newRecords: [], changedRecords: [], unchangedCount: 0, notReturnedCount: 0, baselineCount: next.records.length };
+  const route = (snapshot) => snapshot.retrievalMethod || (snapshot.source === "PubMed" ? "ncbi" : snapshot.source);
+  if (route(previous) !== route(next)) return { isBaseline: true, baselineReason: "source-changed", newRecords: [], changedRecords: [], unchangedCount: 0, notReturnedCount: 0, baselineCount: next.records.length };
   const before = new Map(previous.records.map((record) => [record.id, record]));
   const after = new Set(next.records.map((record) => record.id));
   const newRecords = [];
@@ -126,8 +129,9 @@ export function watchDigest(watch) {
     watch.title,
     `Query: ${watch.query}`,
     `Source: ${snapshot.source}`,
+    `Retrieved through: ${snapshot.retrievedVia || snapshot.source}`,
     `Checked: ${snapshot.checkedAt}`,
-    check.isBaseline ? `Initial baseline: ${snapshot.records.length} returned records. This is not a count of new publications.` : `Compared with ${check.comparedAt}: ${check.newRecords.length} newly seen records; ${check.changedRecords.length} metadata changes.`,
+    check.isBaseline ? `${check.baselineReason === "source-changed" ? "Replacement baseline (retrieval service changed)" : "Initial baseline"}: ${snapshot.records.length} returned records. This is not a count of new publications.` : `Compared with ${check.comparedAt}: ${check.newRecords.length} newly seen records; ${check.changedRecords.length} metadata changes.`,
     `Coverage: only the returned page, up to ${snapshot.limit} records, of ${snapshot.total} reported source matches. Ranking changes can make older records appear newly seen. Records outside the page are not inferred to be deleted or withdrawn.`,
     "Runs on demand. No background schedule or notification service is active.",
     "",

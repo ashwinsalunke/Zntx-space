@@ -1022,6 +1022,7 @@ function ResearchPage() {
                   <span className="live-dot" /> {result.source} · Live results
                 </span>
               </div>
+              {result.retrievalMethod === "europe-pmc" && result.warnings?.map((warning, index) => <p className="notice" key={index}>{warning}</p>)}
               {result.partial && (
                 <p className="notice" role="status">
                   Partial search: {result.sources.filter((s) => s.status !== "ok").map((s) => s.name).join(", ")} could not be reached. Results include the available sources only.

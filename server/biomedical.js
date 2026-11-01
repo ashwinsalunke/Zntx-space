@@ -1,4 +1,5 @@
 import express from "express";
+import { europePaper } from "./research.js";
 
 const SOURCES = {
   drugs: ["PubChem + ChEMBL", "https://pubchem.ncbi.nlm.nih.gov/"],
@@ -168,6 +169,7 @@ export function createBiomedicalRouter({
     "ClinicalTrials.gov": 250,
     openFDA: 300,
     NCBI: 360,
+    "Europe PMC": 250,
   };
 
   async function request(
@@ -210,13 +212,15 @@ export function createBiomedicalRouter({
               continue;
             }
           }
-          throw new ProviderError(
+          const error = new ProviderError(
             provider,
             response.status === 429
               ? "PROVIDER_RATE_LIMIT"
               : "PROVIDER_HTTP_ERROR",
             `${provider} returned HTTP ${response.status}. Please try again later.`,
           );
+          error.upstreamStatus = response.status;
+          throw error;
         }
         const body = await response.text();
         if (body.length > 6000000)
@@ -453,7 +457,7 @@ export function createBiomedicalRouter({
       },
     );
   }
-  async function pubmed(q) {
+  async function ncbiPubmed(q) {
     const common = { db: "pubmed", tool: "zntx_space" };
     const data = await request(
       "NCBI",
@@ -473,7 +477,7 @@ export function createBiomedicalRouter({
       );
     const ids = data.esearchresult.idlist.filter((id) => /^\d+$/.test(id));
     if (!ids.length)
-      return envelope("pubmed", q, [], Number(data.esearchresult.count) || 0);
+      return envelope("pubmed", q, [], Number(data.esearchresult.count) || 0, { retrievalMethod: "ncbi" });
     const xml = await request(
       "NCBI",
       urlWith("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", {
@@ -496,6 +500,7 @@ export function createBiomedicalRouter({
       results,
       Number(data.esearchresult.count) || 0,
       {
+        retrievalMethod: "ncbi",
         warnings:
           results.length < ids.length
             ? [
@@ -504,6 +509,58 @@ export function createBiomedicalRouter({
             : [],
       },
     );
+  }
+
+  async function pubmed(q) {
+    try {
+      return await ncbiPubmed(q);
+    } catch (error) {
+      const temporaryFailure = error.provider === "NCBI" && (
+        ["PROVIDER_TIMEOUT", "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMIT", "PROVIDER_BUSY"].includes(error.code) ||
+        (error.code === "PROVIDER_HTTP_ERROR" && error.upstreamStatus >= 500)
+      );
+      if (!temporaryFailure) throw error;
+      // Never translate PubMed field tags, date ranges, phrases or Boolean syntax
+      // into another search language silently. This fallback is keyword-only.
+      const terms = q.split(/\s+/);
+      if (terms.some((term) => !/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u.test(term)) || /\b(?:AND|OR|NOT)\b/i.test(q)) {
+        error.message = "PubMed is temporarily unavailable. This query uses syntax that requires NCBI, so it has not been changed or sent to a backup search. Please retry later.";
+        throw error;
+      }
+      const retrievalQuery = `(${terms.join(" AND ")}) AND SRC:MED`;
+      const retrievalUrl = urlWith("https://www.ebi.ac.uk/europepmc/webservices/rest/search", {
+        query: retrievalQuery, format: "json", resultType: "core", pageSize: 20,
+      });
+      let data;
+      try {
+        data = await request("Europe PMC", retrievalUrl);
+      } catch {
+        throw new ProviderError("NCBI / Europe PMC", "PROVIDER_UNAVAILABLE", "PubMed and its Europe PMC backup are temporarily unavailable. Your saved check has not been replaced. Please retry later.");
+      }
+      const supplied = data?.resultList?.result;
+      const total = data?.hitCount;
+      if (!Array.isArray(supplied) || !Number.isSafeInteger(total) || total < supplied.length || (total > 0 && !supplied.length))
+        throw new ProviderError("Europe PMC", "PROVIDER_INVALID_RESPONSE", "The PubMed backup did not return a readable result page. Please retry later.");
+      const records = new Map();
+      for (const record of supplied.slice(0, 20)) {
+        const pmid = String(record?.pmid || record?.id || "");
+        if (record?.source !== "MED" || !/^\d+$/.test(pmid) || (record.id != null && String(record.id) !== pmid)) continue;
+        const paper = europePaper(record);
+        if (!paper.title || records.has(pmid)) continue;
+        records.set(pmid, {
+          ...paper, id: `pubmed-${pmid}`, pmid, source: "PubMed", retrievedVia: "Europe PMC",
+          url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+          volume: record.journalInfo?.volume || "", issue: record.journalInfo?.issue || "", pages: record.pageInfo || "",
+        });
+      }
+      if (supplied.length && !records.size)
+        throw new ProviderError("Europe PMC", "PROVIDER_INVALID_RESPONSE", "The PubMed backup returned no usable PubMed identifiers. Please retry later.");
+      const warnings = ["NCBI is temporarily unavailable. Showing PubMed-indexed records retrieved through Europe PMC. Its keyword matching, ranking and index updates can differ from PubMed."];
+      if (records.size < supplied.length) warnings.push("Some backup records were duplicate or lacked a matching PubMed identifier and were excluded.");
+      return envelope("pubmed", q, [...records.values()], total, {
+        source: "PubMed via Europe PMC", retrievalMethod: "europe-pmc", retrievalQuery, retrievalUrl, warnings,
+      });
+    }
   }
   for (const [kind, handler] of Object.entries({
     drugs,

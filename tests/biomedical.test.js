@@ -35,6 +35,125 @@ async function withApi(fetchImpl, fn, options = {}) {
 
 const ARTICLE = `<PubmedArticleSet><PubmedArticle><MedlineCitation><PMID Version="1">123</PMID><DateCompleted><Year>2025</Year></DateCompleted><Article><Journal><JournalIssue><Volume>7</Volume><Issue>2</Issue><PubDate><MedlineDate>2023 Jan-Feb</MedlineDate></PubDate></JournalIssue><Title>Research &amp; Medicine</Title></Journal><ArticleTitle>A <i>drug</i> study &#x3B1;</ArticleTitle><Abstract><AbstractText Label="RESULTS">A &lt; B; association is not causation.</AbstractText><AbstractText Label="LIMITATIONS">Small sample.</AbstractText></Abstract><AuthorList><Author><LastName>Smith</LastName><ForeName>Alex</ForeName></Author><Author><CollectiveName>Trial Group</CollectiveName></Author></AuthorList><PublicationTypeList><PublicationType>Clinical Trial</PublicationType></PublicationTypeList></Article></MedlineCitation><PubmedData><ArticleIdList><ArticleId IdType="doi">10.1234/trial</ArticleId></ArticleIdList></PubmedData></PubmedArticle></PubmedArticleSet>`;
 
+const mirrorArticle = { id: "123", pmid: "123", source: "MED", title: "A <i>drug</i> study", doi: "10.1234/trial", abstractText: "<p>Small sample; association is not causation.</p>", pubYear: "2023", authorList: { author: [{ fullName: "Alex Smith" }] }, journalInfo: { journal: { title: "Research & Medicine" }, volume: "7", issue: "2" }, pageInfo: "1-9", isOpenAccess: "N" };
+
+test("NCBI outage falls back to labeled PubMed-indexed Europe PMC records, with a separate query and cached response", async () => {
+  const requests = [];
+  await withApi(async (url) => {
+    requests.push(url);
+    if (url.includes("eutils.ncbi.nlm.nih.gov")) return json({}, 500);
+    const endpoint = new URL(url);
+    assert.equal(endpoint.origin, "https://www.ebi.ac.uk");
+    assert.equal(endpoint.searchParams.get("query"), "(semaglutide AND cardiovascular AND outcomes) AND SRC:MED");
+    assert.equal(endpoint.searchParams.get("resultType"), "core");
+    assert.equal(endpoint.searchParams.get("pageSize"), "20");
+    return json({ hitCount: 33, resultList: { result: [mirrorArticle] } });
+  }, async (call) => {
+    const path = "/pubmed?q=semaglutide%20cardiovascular%20outcomes";
+    const { status, data } = await call(path);
+    assert.equal(status, 200);
+    assert.equal(requests.length, 3); // Two bounded NCBI attempts, one backup.
+    assert.equal(data.query, "semaglutide cardiovascular outcomes");
+    assert.equal(data.retrievalMethod, "europe-pmc");
+    assert.equal(data.source, "PubMed via Europe PMC");
+    assert.equal(data.total, 33);
+    assert.match(data.warnings.join(" "), /ranking.*differ/);
+    assert.deepEqual(data.results.map(p => p.id), ["pubmed-123"]);
+    const p = data.results[0];
+    assert.equal(p.url, "https://pubmed.ncbi.nlm.nih.gov/123/");
+    assert.equal(p.retrievedVia, "Europe PMC");
+    assert.equal(p.abstract, "Small sample; association is not causation.");
+    assert.equal(p.title, "A drug study");
+    assert.equal(p.openAccess, false);
+    assert.equal(p.pdf, null);
+    assert.equal(p.year, 2023);
+    assert.equal(p.volume, "7");
+    assert.deepEqual((await call(path)).data, data);
+    assert.equal(requests.length, 3);
+  });
+});
+
+test("NCBI retries can recover without a backup and empty primary searches stay authoritative", async () => {
+  let attempts = 0;
+  await withApi(async (url) => {
+    assert.ok(url.includes("eutils.ncbi.nlm.nih.gov"));
+    if (attempts++ === 0) return json({}, 500);
+    return json({ esearchresult: { idlist: [], count: "0" } });
+  }, async (call) => {
+    const { status, data } = await call("/pubmed?q=rareword");
+    assert.equal(status, 200);
+    assert.equal(attempts, 2);
+    assert.equal(data.retrievalMethod, "ncbi");
+    assert.deepEqual(data.results, []);
+    assert.deepEqual(data.warnings, []);
+  });
+});
+
+test("backup excludes non-PubMed records, mismatched IDs and duplicates without inventing abstracts or open access", async () => {
+  const supplied = [mirrorArticle, { ...mirrorArticle, source: "PPR", id: "PPR1" }, { ...mirrorArticle, pmid: "bad" }, { ...mirrorArticle, id: "456" }, mirrorArticle, { id: "999", source: "MED", title: "No abstract" }];
+  await withApi(async (url) => url.includes("eutils.ncbi.nlm.nih.gov") ? json({}, 503) : json({ hitCount: 10, resultList: { result: supplied } }), async (call) => {
+    const { status, data } = await call("/pubmed?q=semaglutide");
+    assert.equal(status, 200);
+    assert.deepEqual(data.results.map(p => p.id), ["pubmed-123", "pubmed-999"]);
+    assert.equal(data.results[1].abstract, "");
+    assert.equal(data.results[1].openAccess, false);
+    assert.match(data.warnings.join(" "), /excluded/);
+  });
+});
+
+test("advanced PubMed syntax is never silently translated during outages", async () => {
+  const queries = ["cancer[MeSH Terms]", '"heart failure"', "metformin AND cancer", "SRC:PMC", "2020:2026[dp]", "semaglutide -cardiovascular"];
+  await withApi(async (url) => {
+    assert.ok(url.includes("eutils.ncbi.nlm.nih.gov"), "Advanced queries must not reach the mirror");
+    return json({}, 500);
+  }, async (call) => {
+    for (const query of queries) {
+      const { status, data } = await call("/pubmed?q=" + encodeURIComponent(query));
+      assert.equal(status, 502);
+      assert.match(data.error, /requires NCBI/);
+      assert.equal(data.results, undefined);
+    }
+  });
+});
+
+test("NCBI timeouts can recover through an authoritative empty backup response", async () => {
+  let calls = 0;
+  await withApi(async (url) => {
+    calls++;
+    if (url.includes("eutils.ncbi.nlm.nih.gov")) throw new DOMException("Timed out", "TimeoutError");
+    return json({ hitCount: 0, resultList: { result: [] } });
+  }, async (call) => {
+    const { status, data } = await call("/pubmed?q=rareword");
+    assert.equal(status, 200);
+    assert.equal(calls, 3);
+    assert.equal(data.total, 0);
+    assert.equal(data.retrievalMethod, "europe-pmc");
+    assert.deepEqual(data.results, []);
+  });
+});
+
+test("both providers failing or returning corrupt pages produces an error rather than an empty successful baseline", async () => {
+  for (const backup of [() => json({}, 503), () => json({ hitCount: 4, resultList: { result: [] } }), () => json({ hitCount: 1, resultList: { result: [{ ...mirrorArticle, source: "PPR" }] } }), () => json(null)]) {
+    await withApi(async (url) => url.includes("eutils.ncbi.nlm.nih.gov") ? json({}, 500) : backup(), async (call) => {
+      const { status, data } = await call("/pubmed?q=semaglutide");
+      assert.equal(status, 502);
+      assert.equal(data.results, undefined);
+      assert.ok(["PROVIDER_UNAVAILABLE", "PROVIDER_INVALID_RESPONSE"].includes(data.code));
+    });
+  }
+});
+
+test("invalid NCBI searches and HTTP 400 do not trigger a different search provider", async () => {
+  for (const response of [() => json({}, 400), () => json({ esearchresult: { ERROR: "Bad query" } })]) {
+    let calls = 0;
+    await withApi(async (url) => { calls++; assert.ok(url.includes("eutils.ncbi.nlm.nih.gov")); return response(); }, async (call) => {
+      const { status } = await call("/pubmed?q=semaglutide");
+      assert.equal(status, 502);
+      assert.equal(calls, 1);
+    });
+  }
+});
+
 test("PubMed normalization preserves abstract labels, authors, DOI and publication year rather than indexing year", () => {
   const [p] = pubmedPapers(ARTICLE);
   assert.equal(p.title, "A drug study α");
