@@ -1,3 +1,5 @@
+import { searchProvenance } from "../shared/claim-evidence.js";
+import { SearchActivity } from "./ClaimEvidence.jsx";
 import { useProjectApi } from "./useProjectApi.js";
 import { loadSavedChat } from "./saved-chat.js";
 import PromptSuggestions from "./PromptSuggestions.jsx";
@@ -165,9 +167,11 @@ export default function ResearchChat() {
       ai: {
         text: result.text,
         citations: result.citations,
+        evidenceSources: result.evidenceSources,
         model: result.model,
         generatedAt: result.generatedAt,
         warnings: result.warnings,
+        activity: result.activity || searchProvenance(turn.result),
       },
     };
     setTurns((v) => v.map((t) => (t.id === turn.id ? updated : t)));
@@ -287,7 +291,8 @@ export default function ResearchChat() {
                     Download
                   </Button>
                 </div>
-                <div className="saved-synthesis-text"><ResearchText text={turn.ai.text} citations={turn.ai.citations || []} prefix={`chat-${turn.id}`} /></div>
+                <SearchActivity activity={turn.ai.activity || turn.result} citations={turn.ai.evidenceSources || turn.ai.citations || []}/>
+                <div className="saved-synthesis-text"><ResearchText text={turn.ai.text} citations={turn.ai.citations || []} prefix={`chat-${turn.id}`} evidence={turn.result.papers} activity={turn.ai.activity || turn.result} /></div>
                 <ol>
                   {(turn.ai.citations || []).map((s, index) => (
                     <li key={s.id} id={`chat-${turn.id}-source-${index}`}>
@@ -306,6 +311,7 @@ export default function ResearchChat() {
               <AiPanel
                 autoGenerate={params.get("auto") === "1"}
                 task="synthesis"
+                activity={turn.result}
                 prompt={reportPrompt(turn.query, verified || turn.mode === "verified")}
                 evidence={turn.result.papers
                   .filter((p) => p.abstract)

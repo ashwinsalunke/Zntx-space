@@ -387,6 +387,8 @@ export function evidenceFor(sources) {
       title: s.title,
       url: sourceUrl(s) || "",
       abstract: (s.evidenceText || s.abstract || "").slice(0, 6500),
+      kind: s.evidenceText ? "full-text-excerpt" : "abstract",
+      pdf: s.pdf || "",
     }));
 }
 

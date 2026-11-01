@@ -1,3 +1,5 @@
+import { evidenceMetadata } from "../shared/claim-evidence.js";
+import { SearchActivity } from "./ClaimEvidence.jsx";
 import { useProjectApi } from "./useProjectApi.js";
 import PromptSuggestions from "./PromptSuggestions.jsx";
 import { toolExamples } from "./tool-examples.js";
@@ -137,11 +139,7 @@ export default function ResearchWorkflow({ presentation = false }) {
   const selection = state.sources.filter((s) => s.selected);
   const paperText = documentMarkdown(state.document),
     review = reviewWorkflow(state);
-  const citations = state.sources.map((s) => ({
-    id: s.evidenceId,
-    title: s.title,
-    url: sourceUrl(s),
-  }));
+  const citations = state.sources.map(s => evidenceMetadata({...s,id:s.evidenceId,abstract:s.evidenceText || s.abstract,kind:s.evidenceText ? 'full-text-excerpt':'abstract'}));
 
   function update(patch, { replaceEditor = false } = {}) {
     const next = {
@@ -905,6 +903,7 @@ export default function ResearchWorkflow({ presentation = false }) {
         </div>
       </header>
       {activeProjectId && library.length > 0 && !state.sources.length && <div className="project-home-card"><BookOpen size={20}/><div><strong>{library.length} sources in this project</strong><p>Bring your saved papers into this workflow, then choose the evidence to use.</p></div><Button disabled={!!busy} onClick={() => run("Opening project sources…", async signal => { await ensureSession(signal); update({sources: normalizeSources(library), step:1}); await persist(); })}>Use project sources</Button></div>}
+      <SearchActivity activity={state.search} citations={citations.filter(s=>state.sources.find(x=>x.evidenceId===s.id)?.selected)}/>
       <nav className="rf-steps" aria-label="Research workflow steps">
         {steps.map((label, index) => (
           <button
@@ -1624,6 +1623,8 @@ export default function ResearchWorkflow({ presentation = false }) {
                       }}
                       disabled={!!busy}
                       sources={selection}
+                      evidenceSources={state.sources}
+                      activity={state.search}
                     />
                   </Suspense>
                   <ReferenceList
@@ -1739,6 +1740,7 @@ export default function ResearchWorkflow({ presentation = false }) {
                                 <ResearchText
                                   text={activeSlide.content}
                                   citations={citations}
+                                  activity={state.search}
                                   prefix="workflow"
                                 />
                               </div>
@@ -2054,6 +2056,7 @@ export default function ResearchWorkflow({ presentation = false }) {
                     <ResearchText
                       text={assist.text}
                       citations={citations}
+                                  activity={state.search}
                       prefix="workflow"
                     />
                     <Button

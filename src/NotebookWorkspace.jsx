@@ -1,3 +1,4 @@
+import { evidenceMetadata } from "../shared/claim-evidence.js";
 import { useProjectApi } from "./useProjectApi.js";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -295,10 +296,7 @@ function NotebookDocument({ id }) {
           task: "draft",
           prompt: `Help develop this research notebook. User request: ${prompt}\n\nCurrent writing (excerpt):\n${documentMarkdown(snapshot.document).slice(0, 16000)}\n\nUse only supplied abstracts for factual source claims. Never invent experiments, results or references. Provide text the user can review and append. If evidence is insufficient, state what they need to find next.`,
           evidence: (snapshot.sources || []).slice(0, 12).map((s) => ({
-            id: s.evidenceId,
-            title: s.title,
-            url: sourceUrl(s),
-            abstract: (s.abstract || "").slice(0, 5000),
+            ...evidenceMetadata({...s,id:s.evidenceId,abstract:(s.abstract || '').slice(0,5000)}),
           })),
         }),
       });

@@ -126,7 +126,7 @@ export default function SourcePdfReader() {
       )}
       {blob && (
         <iframe
-          src={blob}
+          src={blob + (/^[1-9]\d{0,4}$/.test(params.get("page") || "") ? "#page=" + params.get("page") : "")}
           title={title + " PDF"}
           style={{
             width: "100%",

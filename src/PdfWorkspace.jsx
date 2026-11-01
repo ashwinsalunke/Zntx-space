@@ -397,10 +397,12 @@ export default function PdfWorkspace({ extract = false }) {
                   .map((p) => ({
                     id: "page-" + p.page,
                     title: doc.name + " · Page " + p.page,
+                    page: p.page, kind: "pdf-page", documentId: doc.id || doc.name,
                     url: "",
                     abstract: p.text.slice(0, 5500),
                   }))}
                 label="Extract evidence with AI"
+                onOpenPage={source => jump(source.page)}
               />
               <div className="notice">
                 <Info size={15} />
@@ -453,10 +455,12 @@ export default function PdfWorkspace({ extract = false }) {
                     .map((p) => ({
                       id: "page-" + p.page,
                       title: doc.name + " · Page " + p.page,
+                    page: p.page, kind: "pdf-page", documentId: doc.id || doc.name,
                       url: "",
                       abstract: p.text.slice(0, 5500),
                     }))}
                   label="Explain with AI"
+                  onOpenPage={source => jump(source.page)}
                 />
                 {!messages.length && (
                   <div className="chat-welcome">

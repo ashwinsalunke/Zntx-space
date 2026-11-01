@@ -341,12 +341,14 @@ export default function SourceWorkspace() {
                 {!!rows.length && (
                   <AiPanel
                     task="synthesis"
+                    activity={{query:result.query || queryParam || query,retrievedAt:result.retrievedAt,sources:[{name:result.source || definition.label,url:result.externalSearchUrl || '',status:'ok',returned:rows.length}]}}
                     prompt={`Help me understand these ${definition.label} records for the question: ${queryParam || query}. Clearly distinguish datasets, preprints, search snippets, patent records, grant notices and software metadata from clinical study findings. Search snippets cannot substantiate a paper's methods or results. Summarize only supplied descriptions, cite sources, and state what remains unknown.`}
                     evidence={rows
                       .filter((r) => r.abstract || r.snippet)
                       .slice(0, 12)
                       .map((r) => ({
                         ...r,
+                        kind: r.abstract ? 'abstract' : 'search-snippet',
                         abstract:
                           r.abstract ||
                           "Search result snippet, not a full article or abstract: " +

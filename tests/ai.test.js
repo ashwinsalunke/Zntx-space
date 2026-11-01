@@ -190,6 +190,7 @@ async function serve(t, options = {}) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }),
+    evidence: body => fetch(`${base}/evidence`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),
     raw: (body) =>
       fetch(`${base}/generate`, {
         method: "POST",
@@ -313,7 +314,7 @@ test("real provider request uses server settings and keeps supplied evidence cit
   assert.match(sent.body.messages[0].content, /untrusted source material/);
   assert.deepEqual(
     result.citations,
-    evidence.map(({ id, title, url }) => ({ id, title, url })),
+    evidence.map(({ id, title, url, abstract }) => ({ id, title, url, abstract })),
   );
   assert.equal(
     JSON.stringify(await (await api.get()).json()).includes(env.AI_API_KEY),
@@ -453,7 +454,7 @@ test("native generateContent uses header authentication, separate system instruc
   );
   assert.deepEqual(
     body.citations,
-    evidence.map(({ id, title, url }) => ({ id, title, url })),
+    evidence.map(({ id, title, url, abstract }) => ({ id, title, url, abstract })),
   );
   assert.doesNotMatch(body.text, /Private reasoning/);
   assertPublicIdentity(await (await api.get()).json());
@@ -673,7 +674,7 @@ test("two primary capacity failures permit exactly one native fallback with iden
   );
   assert.deepEqual(
     body.citations,
-    evidence.map(({ id, title, url }) => ({ id, title, url })),
+    evidence.map(({ id, title, url, abstract }) => ({ id, title, url, abstract })),
   );
   assertPublicIdentity(body);
 });
@@ -1247,4 +1248,28 @@ test('topic discovery uses structured generation with abstracts and rejects unkn
   const result=await service.post(request);assert.equal(result.status,200);assert.equal(JSON.parse((await result.json()).text).topics.length,3);assert.ok(captured.generationConfig.responseJsonSchema.properties.topics);assert.equal(captured.generationConfig.responseMimeType,'application/json');
   assert.equal((await service.post({...request,evidence:[]})).status,400);
   response.topics[0].whyNow='Unavailable [[cite:S99]].';const rejected=await service.post(request);assert.equal(rejected.status,502);assert.equal((await rejected.json()).code,'UNVERIFIED_AI_CITATION');
+});
+
+
+test('claim evidence checks copy real passages, retain PDF metadata, and reject invented support', async t => {
+  let answer={assessments:[{sourceId:'page-4',relation:'partial',quote:'The study reported an uncertain association.',explanation:'An uncertain association does not establish causation.'}]}, sent, calls=0;
+  const service=await serve(t,{env:googleEnv,fetchImpl:async(_url,options)=>{calls++;sent=JSON.parse(options.body);return nativeCompletion(JSON.stringify(answer));}});
+  const source={...evidence[0],id:'page-4',kind:'pdf-page',page:4,pdf:'https://example.org/paper.pdf'};
+  let response=await service.evidence({claim:'A causes B in patients.',evidence:[source]});
+  let body=await response.json();assert.equal(response.status,200);assert.equal(body.assessments[0].quoteMatched,true);assert.equal(body.assessments[0].relation,'partial');
+  assert.equal(sent.generationConfig.responseMimeType,'application/json');
+  assert.equal(JSON.parse(sent.contents[0].parts[0].text).sources[0].page,4);
+  assert.match(sent.systemInstruction.parts[0].text,/association does not support causation/);
+  answer.assessments[0].quote='This invented sentence proves a causal effect in humans.';
+  response=await service.evidence({claim:'A causes B.',evidence:[source]});body=await response.json();assert.equal(response.status,502);assert.equal(body.code,'EVIDENCE_MATCH_FAILED');assert.equal(body.assessments,undefined);
+  response=await service.evidence({claim:'A causes B.',evidence:[{...source,abstract:''}]});assert.equal(response.status,400);assert.equal(calls,2);
+  response=await service.evidence({claim:'A causes B.',evidence:[{...source,page:0}]});assert.equal(response.status,400);assert.equal(calls,2);
+});
+
+test('claim evidence failures and unconfigured service never fabricate support or disclose credentials', async t=>{
+  let calls=0;
+  const disabled=await serve(t,{env:{},fetchImpl:async()=>{calls++;}});
+  const response=await disabled.evidence({claim:'A supports B.',evidence});assert.equal(response.status,503);assert.equal(calls,0);assert.equal((await response.json()).code,'AI_NOT_CONFIGURED');
+  const bad=await serve(t,{env,fetchImpl:async()=>new Response(JSON.stringify({secret:env.AI_API_KEY}),{status:403})});
+  const failure=await bad.evidence({claim:'A supports B.',evidence});const body=await failure.json();assert.equal(failure.status,502);assert.ok(!JSON.stringify(body).includes(env.AI_API_KEY));assert.equal(body.assessments,undefined);
 });

@@ -59,7 +59,7 @@ app.use("/api", (req, res, next) => {
 // Bound anonymous public traffic. Keys/models are never exposed to clients.
 const rates = new Map();
 app.use("/api", (req, res, next) => {
-  const paid = req.path === "/ai/generate";
+  const paid = /^\/ai\/(?:generate|evidence)\/?$/i.test(req.path);
   const key = (req.ip || "local") + (paid ? ":ai-generate" : ":research");
   const max = paid ? 30 : 300;
   const windowMs = paid ? 3600000 : 60000;

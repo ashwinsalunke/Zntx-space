@@ -1049,7 +1049,7 @@ function ResearchPage() {
               ) : view === "table" ? (
                 <PaperTable papers={papers} onOpen={setPaper} />
               ) : view === "overview" ? (
-                <Overview papers={papers} query={query} onOpen={setPaper} />
+                <Overview papers={papers} query={query} onOpen={setPaper} activity={result?.sources ? result : {query,retrievedAt:result?.retrievedAt,sources:[{name:result?.source || provider,status:"ok",returned:result?.papers?.length || 0}],partial:!!result?.partial}} />
               ) : (
                 <div className="paper-list">
                   {papers.map((p, i) => (
@@ -1173,7 +1173,7 @@ function PaperCard({ paper: p, index, onOpen, selected, onSelect }) {
 function PaperTable({ papers, onOpen }) {
   return <ResearchTable papers={papers} onOpen={onOpen} />;
 }
-function Overview({ papers, query, onOpen }) {
+function Overview({ papers, query, onOpen, activity }) {
   const withAbstract = papers.filter((p) => p.abstract);
   return (
     <div className="overview">
@@ -1188,6 +1188,7 @@ function Overview({ papers, query, onOpen }) {
       </div>
       <AiPanel
         task="synthesis"
+        activity={activity}
         prompt={`Synthesize the available evidence for this question: ${query}. Distinguish findings, study limitations, and missing evidence.`}
         evidence={papers.filter((p) => p.abstract).slice(0, 16)}
         label="Generate cited synthesis"

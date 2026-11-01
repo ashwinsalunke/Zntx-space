@@ -1,3 +1,5 @@
+import { EvidenceScope, useClaimEvidence, SearchActivity, sourceDomain } from "./ClaimEvidence.jsx";
+import { citedSentences, evidenceMetadata, searchProvenance, stripCitationMarkers } from "../shared/claim-evidence.js";
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -29,13 +31,24 @@ const safeLink = (url) => {
 };
 
 export function CitedText({ text, citations = [], prefix }) {
+  const scope = useClaimEvidence();
+  if (scope) return citedSentences(text).map((part,index) => {
+    const ids = part.ids.filter(id => scope.sources.some(s => s.id === id));
+    if(!ids.length) return <PlainCitedText key={index} text={part.text} citations={citations} prefix={prefix}/>;
+    const source=scope.sources.find(s=>s.id===ids[0]);
+    const label=stripCitationMarkers(part.text);
+    return <React.Fragment key={index}><button type="button" className="evidence-claim-text" onClick={()=>scope.open(part.text,ids)} aria-label={'View evidence for: '+label}><PlainCitedText text={label} citations={[]} prefix={prefix}/></button><button type="button" className="evidence-chip" aria-label={'Sources for this claim: '+ids.map(id=>scope.sources.find(s=>s.id===id)?.title).join('; ')} onClick={()=>scope.open(part.text,ids)}>{sourceDomain(source)}{ids.length>1 ? ` +${ids.length-1}` : ''}</button></React.Fragment>;
+  });
+  return <PlainCitedText text={text} citations={citations} prefix={prefix}/>;
+}
+function PlainCitedText({ text, citations = [], prefix }) {
   const byId = new Map(
     citations.map((source, index) => [source.id, { ...source, index }]),
   );
   return String(text || "")
     .split(/(\*\*[^*]+\*\*|\[\[cite:[^\]\r\n]+\]\])/g)
     .map((part, index) => {
-      if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}><CitedText text={part.slice(2, -2)} citations={citations} prefix={prefix} /></strong>;
+      if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}><PlainCitedText text={part.slice(2, -2)} citations={citations} prefix={prefix} /></strong>;
       const id = /^\[\[cite:([^\]\r\n]+)\]\]$/.exec(part)?.[1];
       const source = byId.get(id);
       return source ? (
@@ -55,7 +68,10 @@ export function CitedText({ text, citations = [], prefix }) {
 }
 
 // A small, text-only research renderer: no raw HTML or generated links execute.
-export function ResearchText({ text, citations = [], prefix }) {
+export function ResearchText({text,citations=[],prefix,evidence=[],activity,onOpenPage,savedAssessment}) {
+  return <EvidenceScope citations={citations} evidence={evidence} activity={activity} onOpenPage={onOpenPage} savedAssessment={savedAssessment}><ResearchBody text={text} citations={citations} prefix={prefix}/></EvidenceScope>;
+}
+function ResearchBody({ text, citations = [], prefix }) {
   const blocks = [];
   let paragraph = [], list = [];
   const inline = (value) => <CitedText text={value} citations={citations} prefix={prefix} />;
@@ -85,6 +101,8 @@ export default function AiPanel({
   onResult,
   label = "Generate with AI",
   autoGenerate = false,
+  activity,
+  onOpenPage,
 }) {
   const { saveNote } = useApp();
   const [status, setStatus] = useState(null);
@@ -155,10 +173,9 @@ export default function AiPanel({
           task,
           prompt,
           evidence: evidence.map((source, index) => ({
+            ...evidenceMetadata(source),
             id: String(index + 1),
             title: source.title || "Supplied document",
-            url: source.url || "",
-            abstract: source.abstract || "",
           })),
         }),
       });
@@ -168,8 +185,9 @@ export default function AiPanel({
         throw new Error(data.error || "The AI request could not be completed.");
       }
       if (requestId.current === id && !next.signal.aborted) {
-        setResult(data);
-        onResult?.(data);
+        const output = {...data, activity: searchProvenance(activity)};
+        setResult(output);
+        onResult?.(output);
       }
     } catch (failure) {
       if (requestId.current === id && !next.signal.aborted)
@@ -299,6 +317,7 @@ export default function AiPanel({
           </button>
         )}
       </div>
+      {busy && <SearchActivity activity={activity} citations={evidence} busy/>}
       {busy && (
         <p className="zai-note" role="status">
           Reviewing the request and supplied evidence. This can take up to a
@@ -317,8 +336,10 @@ export default function AiPanel({
             <span>ScrapeTx AI</span>
           </div>
           {result.diagram && <DiagramFigure diagram={result.diagram} />}
+          <SearchActivity activity={result.activity} citations={result.evidenceSources || sources}/>
+          {!!sources.length && <p className="zai-note">Click a cited sentence or source chip to inspect its evidence. Uncited text has no linked passage.</p>}
           <div className="zai-output">
-            <ResearchText text={result.text} citations={sources} prefix={prefix} />
+            <ResearchText text={result.text} citations={sources} prefix={prefix} activity={result.activity} onOpenPage={onOpenPage}/>
           </div>
           {!!sources.length && (
             <div className="zai-sources">
@@ -348,7 +369,7 @@ export default function AiPanel({
           <div className="zai-controls">
             <button className="zai-secondary" onClick={async () => {
               try {
-                await saveNote({title: result.diagram?.title || prompt.slice(0,100), content: exportText(result), citations: result.citations || [], assistant: "ScrapeTx AI", ...(result.diagram ? {diagram:result.diagram} : {})});
+                await saveNote({title: result.diagram?.title || prompt.slice(0,100), content: exportText(result), citations: result.citations || [], evidenceSources: result.evidenceSources, activity: result.activity, assistant: "ScrapeTx AI", ...(result.diagram ? {diagram:result.diagram} : {})});
                 setActionMessage("Saved to My Library.");
               } catch (e) { setActionMessage(e.message); }
             }}><Bookmark size={15} aria-hidden="true"/> Save to library</button>

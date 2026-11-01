@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import { EvidenceDrawer } from "./ClaimEvidence.jsx";
+import { evidenceMetadata, cleanClaim, citedSentences } from "../shared/claim-evidence.js";
+import React, { useEffect, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -67,7 +69,11 @@ export default function WorkflowEditor({
   onReady,
   disabled = false,
   sources = [],
+  activity,
+  evidenceSources = sources,
 }) {
+  const [evidenceSelection,setEvidenceSelection] = useState(null);
+  const sourceRef=useRef(evidenceSources); sourceRef.current=evidenceSources;
   const callback = useRef(onChange);
   callback.current = onChange;
   const editor = useEditor({
@@ -87,7 +93,7 @@ export default function WorkflowEditor({
           .closest?.('[data-type="research-citation"]')
           ?.getAttribute("data-source-id");
         if (!id) return false;
-        documentRef(id);
+        documentRef(id,view,pos);
         return true;
       },
       handleKeyDown(view, event) {
@@ -95,7 +101,7 @@ export default function WorkflowEditor({
           event.key === "Enter" &&
           event.target.matches?.('[data-type="research-citation"]')
         ) {
-          documentRef(event.target.getAttribute("data-source-id"));
+          documentRef(event.target.getAttribute("data-source-id"),view,view.posAtDOM(event.target,0));
           return true;
         }
         return false;
@@ -103,7 +109,15 @@ export default function WorkflowEditor({
     },
     onUpdate: ({ editor: current }) => callback.current(current.getJSON()),
   });
-  function documentRef(id) {
+  function documentRef(id,view,pos) {
+    const source=sourceRef.current.find(s=>(s.evidenceId || s.id)===id);
+    if(source) {
+      const parent=view.state.doc.resolve(pos).parent;
+      let paragraph=''; parent.forEach(node=>{paragraph += node.type.name==='researchCitation' ? `[[cite:${node.attrs.sourceId}]]` : node.textContent;});
+      const matched=citedSentences(paragraph).find(part=>part.ids.includes(id));
+      setEvidenceSelection({claim:cleanClaim(matched?.text || paragraph), sources:[evidenceMetadata({...source,id,abstract:source.evidenceText || source.abstract})]});
+      return;
+    }
     globalThis.document
       .getElementById(`workflow-ref-${id}`)
       ?.scrollIntoView({
@@ -232,6 +246,7 @@ export default function WorkflowEditor({
         {action("Redo", Redo2, (c) => c.redo(), false, !state?.redo)}
       </div>
       <EditorContent editor={editor} />
+      {evidenceSelection && <EvidenceDrawer {...evidenceSelection} activity={activity} onClose={()=>setEvidenceSelection(null)}/>}
     </div>
   );
 }
